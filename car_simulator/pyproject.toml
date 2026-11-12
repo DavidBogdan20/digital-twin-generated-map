@@ -1,0 +1,53 @@
+[project]
+name = "car-simulator"
+version = "0.1.0"
+description = "Driving scenarios for CARLA 0.9.15, run with ScenarioRunner"
+readme = "README.md"
+# The Windows (uv) setup. carla 0.9.15 has wheels up to Python 3.10; the Linux VM (Python 3.8) does not use this file,
+# see scripts/setup_env_linux.sh
+requires-python = ">=3.10,<3.11"
+dependencies = [
+    # CARLA 0.9.15 only (server, client and maps), from PyPI
+    "carla==0.9.15",
+    # ScenarioRunner's manual_control.py (manual ego driving)
+    "pygame>=2.5",
+
+    # ScenarioRunner's requirements, as of v0.9.16 (newer than v0.9.15's pins, which have no Python 3.10 wheels;
+    # v0.9.15 runs with them). Keep in sync when changing the ScenarioRunner tag.
+    "py-trees==0.8.3",
+    "numpy==1.24.4",
+    "networkx==3.4.2",
+    "Shapely==2.1.1",
+    "psutil",
+    "xmlschema==1.0.18",
+    "ephem",
+    "tabulate",
+    "opencv-python==4.7.0.72",
+    "matplotlib",
+    "six",
+    "simple-watchdog-timer",
+    "antlr4-python3-runtime==4.10",
+    "graphviz",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/carsim"]
+
+[tool.uv]
+# carla only publishes x86-64 Windows and Linux wheels
+environments = [
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.10"
+include = ["src", "apps", "tests", "scenarios"]
+# Mirrors the PYTHONPATH that carsim.runner gives ScenarioRunner, plus apps/ (imported by tests)
+extraPaths = ["src", "apps", "CARLA_0.9.15/PythonAPI/carla", "external/scenario_runner"]

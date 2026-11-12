@@ -1,0 +1,193 @@
+diff --git a/LibCarla/source/carla/road/Map.cpp b/LibCarla/source/carla/road/Map.cpp
+index e746ad893..77e1f338e 100644
+--- a/LibCarla/source/carla/road/Map.cpp
++++ b/LibCarla/source/carla/road/Map.cpp
+@@ -1237,7 +1237,7 @@ namespace road {
+                 geom::Transform lanetransform = lane->ComputeTransform(s_current);
+                 geom::Transform treeTransform(treeposition, lanetransform.rotation);
+                 const carla::road::element::RoadInfoSpeed* roadinfo = lane->GetInfo<carla::road::element::RoadInfoSpeed>(s_current);
+-                transforms.push_back(std::make_pair(treeTransform,roadinfo->GetType()));
++                transforms.push_back(std::make_pair(treeTransform, roadinfo ? roadinfo->GetType() : std::string("urban")));
+               }
+               s_current += distancebetweentrees;
+             }
+@@ -1528,7 +1528,14 @@ namespace road {
+       junction_out_mesh_list) const {
+ 
+       const auto& junction = _data.GetJunctions().at(Id);
+-      if (junction.GetConnections().size() > 2) {
++      double JunctionTop = 0.0;  // patched (apply_patches.py): highest point of the junction's roads
++      for (const auto& c : junction.GetConnections()) {
++        const auto& r = _data.GetRoads().at(c.second.connecting_road);
++        for (double f : {0.0, 0.5, 1.0}) {
++          JunctionTop = std::max(JunctionTop, std::abs(static_cast<double>(r.GetDirectedPointIn(f * r.GetLength()).location.z)));
++        }
++      }
++      if (junction.GetConnections().size() > 2 && JunctionTop < 0.3) {
+         std::vector<std::unique_ptr<geom::Mesh>> lane_meshes;
+         std::vector<std::unique_ptr<geom::Mesh>> sidewalk_lane_meshes;
+         std::vector<carla::geom::Vector3D> perimeterpoints;
+diff --git a/Unreal/CarlaUE4/Plugins/Carla/Source/Carla/Commandlet/PrepareAssetsForCookingCommandlet.cpp b/Unreal/CarlaUE4/Plugins/Carla/Source/Carla/Commandlet/PrepareAssetsForCookingCommandlet.cpp
+index f9b18dbb8..c6276530c 100644
+--- a/Unreal/CarlaUE4/Plugins/Carla/Source/Carla/Commandlet/PrepareAssetsForCookingCommandlet.cpp
++++ b/Unreal/CarlaUE4/Plugins/Carla/Source/Carla/Commandlet/PrepareAssetsForCookingCommandlet.cpp
+@@ -33,7 +33,7 @@ static bool ValidateStaticMesh(UStaticMesh *Mesh)
+ 
+   for (int i = 0; i < Mesh->StaticMaterials.Num(); i++)
+   {
+-    UMaterialInterface *Material = Mesh->GetMaterial(i);
++    UMaterialInterface *Material = Mesh->GetMaterial(i); if (!Material) { Material = UMaterial::GetDefaultMaterial(MD_Surface); }
+     const FString MaterialName = Material->GetName();
+ 
+     if (MaterialName.Contains(TEXT("light"), ESearchCase::IgnoreCase) ||
+diff --git a/Unreal/CarlaUE4/Plugins/CarlaTools/Source/CarlaTools/Private/Online/CustomFileDownloader.cpp b/Unreal/CarlaUE4/Plugins/CarlaTools/Source/CarlaTools/Private/Online/CustomFileDownloader.cpp
+index 79f306c6c..6ff7f8c99 100644
+--- a/Unreal/CarlaUE4/Plugins/CarlaTools/Source/CarlaTools/Private/Online/CustomFileDownloader.cpp
++++ b/Unreal/CarlaUE4/Plugins/CarlaTools/Source/CarlaTools/Private/Online/CustomFileDownloader.cpp
+@@ -33,6 +33,7 @@ void UCustomFileDownloader::ConvertOSMInOpenDrive(FString FilePath, float Lat_0,
+     UE_LOG(LogCarlaToolsMapGenerator, Warning, TEXT("File: %s does not exist"), *FilePath);
+     return;
+   }
++  FString Prepared = FilePath.Replace(TEXT(".osm"), TEXT(".xodr")); if (FileManager.FileExists(*Prepared)) { return; }
+   std::string OsmFile = std::string(TCHAR_TO_UTF8(*FileContent));
+ 
+   osm2odr::OSM2ODRSettings Settings;
+diff --git a/Unreal/CarlaUE4/Plugins/CarlaTools/Source/CarlaTools/Private/OpenDriveToMap.cpp b/Unreal/CarlaUE4/Plugins/CarlaTools/Source/CarlaTools/Private/OpenDriveToMap.cpp
+index 8ee027793..4a7a82e56 100644
+--- a/Unreal/CarlaUE4/Plugins/CarlaTools/Source/CarlaTools/Private/OpenDriveToMap.cpp
++++ b/Unreal/CarlaUE4/Plugins/CarlaTools/Source/CarlaTools/Private/OpenDriveToMap.cpp
+@@ -451,6 +451,72 @@ void UOpenDriveToMap::LoadMap()
+   }
+ }
+ 
++// Patched (apply_patches.py); prepare_dt.py replays this before Generate and check_level.py checks the result.
++static bool PlaceSpot(const carla::road::Map& Map, carla::geom::Location& Spot, const FString& Name,
++    const FVector& TileA, const FVector& TileB)
++{
++  constexpr double ClearOfRoad = 4.5;   // m to a driving lane's edge: tree crowns collide and are up to 8.2 m wide
++  constexpr double ClearOfLanes = 1.0;  // m to any other lane's edge (sidewalks)
++  constexpr double ClearOfWalls = 3.0;  // m to a building wall
++  const auto In = [](double V, double A, double B) { return V >= FMath::Min(A, B) && V < FMath::Max(A, B); };
++  if (!In(Spot.x * 100.0, TileA.X, TileB.X) || !In(Spot.y * 100.0, TileA.Y, TileB.Y))
++  {
++    return false;  // another tile places it
++  }
++  const auto Gap = [&Map, &Spot](carla::road::Lane::LaneType Type, carla::geom::Location* Centre) {
++    const auto W = Map.GetClosestWaypointOnRoad(Spot, static_cast<int32_t>(Type));
++    if (!W) return 1e9;
++    const auto C = Map.ComputeTransform(*W).location;
++    if (Centre) *Centre = C;
++    return carla::geom::Math::Distance2D(C, Spot) - Map.GetLaneWidth(*W) * 0.5;
++  };
++  for (int Step = 0; Step < 3; ++Step)  // a move away from one road can bring it near another
++  {
++    carla::geom::Location C;
++    const double G = Gap(carla::road::Lane::LaneType::Driving, &C);
++    if (G >= ClearOfRoad) break;
++    FVector2D Away(Spot.x - C.x, Spot.y - C.y);
++    const double Dist = Away.Size();
++    if (Dist < 0.01) return false;
++    Away /= Dist;
++    Spot.x = C.x + Away.X * (Dist - G + ClearOfRoad + 0.05);
++    Spot.y = C.y + Away.Y * (Dist - G + ClearOfRoad + 0.05);
++  }
++  if (Gap(carla::road::Lane::LaneType::Driving, nullptr) < ClearOfRoad || Gap(carla::road::Lane::LaneType::Any, nullptr) < ClearOfLanes)
++  {
++    return false;
++  }
++  static FString Loaded;
++  static TArray<TArray<FVector2D>> Outlines;  // one building per line of x y x y ... in CARLA metres
++  if (Loaded != Name)
++  {
++    Loaded = Name;
++    Outlines.Reset();
++    TArray<FString> Lines;
++    FFileHelper::LoadFileToStringArray(Lines, *(FPaths::ProjectContentDir() + "CustomMaps/" + Name + "/OpenDrive/" + Name + ".keepout"));
++    for (const FString& Line : Lines)
++    {
++      TArray<FString> N;
++      Line.ParseIntoArrayWS(N);
++      TArray<FVector2D>& O = Outlines.AddDefaulted_GetRef();
++      for (int i = 0; i + 1 < N.Num(); i += 2) O.Add(FVector2D(FCString::Atof(*N[i]), FCString::Atof(*N[i + 1])));
++    }
++    UE_LOG(LogCarlaToolsMapGenerator, Warning, TEXT("PlaceSpot: %d building outlines for %s"), Outlines.Num(), *Name);
++  }
++  const FVector P(Spot.x, Spot.y, 0.0f);
++  for (const TArray<FVector2D>& O : Outlines)
++  {
++    bool Inside = false;
++    for (int i = 0, j = O.Num() - 1; i < O.Num(); j = i++)
++    {
++      if ((O[i].Y > P.Y) != (O[j].Y > P.Y) && P.X < O[i].X + (P.Y - O[i].Y) * (O[j].X - O[i].X) / (O[j].Y - O[i].Y)) Inside = !Inside;
++      if (FMath::PointDistToSegment(P, FVector(O[i], 0.0f), FVector(O[j], 0.0f)) < ClearOfWalls) return false;
++    }
++    if (Inside) return false;
++  }
++  return true;
++}
++
+ TArray<AActor*> UOpenDriveToMap::GenerateMiscActors(float Offset, FVector MinLocation, FVector MaxLocation )
+ {
+   carla::geom::Vector3D CarlaMinLocation(MinLocation.X / 100, MinLocation.Y / 100, MinLocation.Z /100);
+@@ -463,6 +529,7 @@ TArray<AActor*> UOpenDriveToMap::GenerateMiscActors(float Offset, FVector MinLoc
+   for (auto& cl : Locations)
+   {
+     const FVector scale{ 1.0f, 1.0f, 1.0f };
++    if (!PlaceSpot(*CarlaMap, cl.first.location, MapName, MinLocation, MaxLocation)) continue;
+     cl.first.location.z = GetHeight(cl.first.location.x, cl.first.location.y) + 0.3f;
+     FTransform NewTransform ( FRotator(cl.first.rotation), FVector(cl.first.location), scale );
+ 
+@@ -732,6 +799,7 @@ void UOpenDriveToMap::GenerateTreePositions( const boost::optional<carla::road::
+   for (auto &cl : Locations)
+   {
+     const FVector scale{ 1.0f, 1.0f, 1.0f };
++    if (!PlaceSpot(*ParamCarlaMap, cl.first.location, MapName, MinLocation, MaxLocation)) continue;
+     cl.first.location.z  = GetHeight(cl.first.location.x, cl.first.location.y) + 0.3f;
+     FTransform NewTransform ( FRotator(cl.first.rotation), FVector(cl.first.location), scale );
+     NewTransform = GetSnappedPosition(NewTransform);
+@@ -791,13 +859,7 @@ float UOpenDriveToMap::GetHeight(float PosX, float PosY, bool bDrivingLane){
+       return LandscapeHeight;
+     }
+   }else{
+-    if( bDrivingLane ){
+-      return carla::geom::deformation::GetZPosInDeformation(PosX, PosY) +
+-        (carla::geom::deformation::GetZPosInDeformation(PosX, PosY) * -0.3f) -
+-        carla::geom::deformation::GetBumpDeformation(PosX,PosY);
+-    }else{
+-      return carla::geom::deformation::GetZPosInDeformation(PosX, PosY) + (carla::geom::deformation::GetZPosInDeformation(PosX, PosY) * -0.3f);
+-    }
++    return 0.0f;  // patched (apply_patches.py): no made-up waves, roads keep the road file's heights
+   }
+ }
+ 
+@@ -840,7 +902,7 @@ float UOpenDriveToMap::GetHeightForLandscape( FVector Origin ){
+     CollisionQuery,
+     CollisionParams) )
+   {
+-    return GetHeight(Origin.X * 0.01f, Origin.Y * 0.01f, true) * 100.0f - 80.0f;
++    return GetHeight(Origin.X * 0.01f, Origin.Y * 0.01f, true) * 100.0f - 12.0f;  // patched (apply_patches.py): 80 left a trench beside every road
+   }else{
+     return GetHeight(Origin.X * 0.01f, Origin.Y * 0.01f, true) * 100.0f - 1.0f;
+   }
+diff --git a/Util/BuildTools/Setup.sh b/Util/BuildTools/Setup.sh
+index 5277db2ac..62b5f8072 100755
+--- a/Util/BuildTools/Setup.sh
++++ b/Util/BuildTools/Setup.sh
+@@ -91,7 +91,7 @@ for PY_VERSION in ${PY_VERSION_LIST[@]} ; do
+     BOOST_PACKAGE_BASENAME=boost_${BOOST_VERSION//./_}
+ 
+     log "Retrieving boost."
+-    wget "https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VERSION}/source/${BOOST_PACKAGE_BASENAME}.tar.gz" || true
++    wget "https://archives.boost.io/release/${BOOST_VERSION}/source/${BOOST_PACKAGE_BASENAME}.tar.gz" || true
+     # try to use the backup boost we have in Jenkins
+     if [[ ! -f "${BOOST_PACKAGE_BASENAME}.tar.gz" ]] ; then
+       log "Using boost backup"
+@@ -339,7 +339,7 @@ unset RECAST_BASENAME
+ # ==============================================================================
+ 
+ LIBPNG_VERSION=1.6.37
+-LIBPNG_REPO=https://sourceforge.net/projects/libpng/files/libpng16/${LIBPNG_VERSION}/libpng-${LIBPNG_VERSION}.tar.xz
++LIBPNG_REPO=https://sourceforge.net/projects/libpng/files/libpng16/older-releases/${LIBPNG_VERSION}/libpng-${LIBPNG_VERSION}.tar.xz
+ LIBPNG_BASENAME=libpng-${LIBPNG_VERSION}
+ LIBPNG_INSTALL=${LIBPNG_BASENAME}-install
+ 

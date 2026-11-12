@@ -1,0 +1,223 @@
+{
+    // Run with Terminal > Run Task (Ctrl+Shift+P: "Tasks: Run Task"). Tasks are grouped by label prefix.
+    // Commands use "python -m uv run python ..." from the repository root, in PowerShell.
+    // Empty inputs are passed as "--variant=" (not "--variant ''") because PowerShell 5.1 drops empty arguments.
+    "version": "2.0.0",
+    "options": {
+        "cwd": "${workspaceFolder}",
+        "shell": { "executable": "powershell.exe" }
+    },
+    "tasks": [
+        {
+            "label": "CARLA: Start server",
+            "type": "shell",
+            "command": "powershell -ExecutionPolicy Bypass -File scripts\\start_carla.ps1",
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated",
+                "group": "carla-server",
+                "reveal": "always"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "CARLA: Reset server",
+            "type": "shell",
+            "command": "python -m uv run python apps\\reset_world.py",
+            "problemMatcher": []
+        },
+        {
+            "label": "CARLA: List maps",
+            "type": "shell",
+            "command": "python -m uv run python apps\\list_maps.py",
+            "problemMatcher": []
+        },
+        {
+            "label": "Scenario: List",
+            "type": "shell",
+            "command": "python -m uv run python apps\\list_scenarios.py",
+            "problemMatcher": []
+        },
+        {
+            "label": "Scenario: Run",
+            "type": "shell",
+            "command": "python -m uv run python apps\\run_scenario.py ${input:runVariant} --drive=${input:drive} --weather=${input:weather} ${input:record} ${input:speed}",
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated",
+                "group": "scenario",
+                "clear": true
+            }
+        },
+        {
+            "label": "Scenario: Run (debug drawing)",
+            "type": "shell",
+            "command": "python -m uv run python apps\\run_scenario.py ${input:runVariant} --drive=${input:drive} --weather=${input:weather} ${input:record} ${input:speed} --debug",
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated",
+                "group": "scenario",
+                "clear": true
+            }
+        },
+        {
+            "label": "Spots: List",
+            "type": "shell",
+            "command": "python -m uv run python apps\\find_crossing_spots.py --lane ${input:lane}",
+            "problemMatcher": []
+        },
+        {
+            "label": "Spots: Map image (plot)",
+            "type": "shell",
+            "command": "python -m uv run python apps\\find_crossing_spots.py --lane ${input:lane} --plot",
+            "problemMatcher": []
+        },
+        {
+            "label": "Spots: Tour",
+            "type": "shell",
+            "command": "python -m uv run python apps\\find_crossing_spots.py --lane ${input:lane} --tour",
+            "problemMatcher": []
+        },
+        {
+            "label": "Spots: Show N",
+            "type": "shell",
+            "command": "python -m uv run python apps\\find_crossing_spots.py --scenario ${input:scenario} --variant=${input:variant} --lane ${input:lane} --show ${input:spotNumber}",
+            "problemMatcher": []
+        },
+        {
+            "label": "Spots: Apply N",
+            "type": "shell",
+            "command": "python -m uv run python apps\\find_crossing_spots.py --scenario ${input:scenario} --variant=${input:variant} --lane ${input:lane} --apply ${input:spotNumber}",
+            "problemMatcher": []
+        },
+        {
+            "label": "Replay: Last run",
+            "type": "shell",
+            "command": "python -m uv run python apps\\replay.py",
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated",
+                "group": "replay",
+                "clear": true
+            }
+        },
+        {
+            "label": "Setup: Environment",
+            "type": "shell",
+            "command": "python scripts\\setup_env.py",
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            // add each new scenario folder under scenarios/ here
+            "id": "scenario",
+            "type": "pickString",
+            "description": "Scenario folder under scenarios/",
+            "options": ["pedestrian_crossing", "occluded_crossing", "cut_in"],
+            "default": "pedestrian_crossing"
+        },
+        {
+            // the ego lane of the spots: kerb = rightmost driving lane (pedestrian_crossing), inner = the lane left of it
+            // (occluded_crossing, where the truck stands in the kerb lane). cut_in has no spot finder (hand-picked starts)
+            "id": "lane",
+            "type": "pickString",
+            "description": "Ego lane of the spots: kerb (pedestrian_crossing) or inner (occluded_crossing)",
+            "options": ["kerb", "inner"],
+            "default": "kerb"
+        },
+        {
+            // Scenario: Run picks the scenario and its variant in one go (add each new variant here)
+            "id": "runVariant",
+            "type": "pickString",
+            "description": "Scenario and variant to run",
+            "options": [
+                { "label": "pedestrian_crossing: Town10HD (pedestrian, crowd, cyclists, traffic; the ego stops for them)", "value": "pedestrian_crossing --variant=PedestrianCrossing_Town10HD_1" },
+                { "label": "occluded_crossing: Child (a child steps out in front of a truck, 23 km/h)", "value": "occluded_crossing --variant=OccludedCrossing_Child_Town10HD_1" },
+                { "label": "occluded_crossing: Crowd (truck, crowd and cyclists from both sides)", "value": "occluded_crossing --variant=OccludedCrossing_Crowd_Town10HD_1" },
+                { "label": "cut_in: Parking (a parked car pulls out from behind a van)", "value": "cut_in --variant=CutIn_Parking_Town10HD_1" },
+                { "label": "cut_in: Cyclist (a cyclist hidden by a fire truck changes into the ego lane)", "value": "cut_in --variant=CutIn_Cyclist_Town10HD_1" },
+                { "label": "WolfsburgHighway pedestrian_crossing (John-F.-Kennedy-Allee: pedestrian, crowd, cyclists, traffic)", "value": "pedestrian_crossing --variant=PedestrianCrossing_WolfsburgHighway_1" },
+                { "label": "WolfsburgHighway occluded_crossing: Child (Konrad-Adenauer-Allee, truck and bus stop, 23 km/h)", "value": "occluded_crossing --variant=OccludedCrossing_Child_WolfsburgHighway_1" },
+                { "label": "WolfsburgHighway occluded_crossing: Crowd (Konrad-Adenauer-Allee, truck, crowd and cyclists)", "value": "occluded_crossing --variant=OccludedCrossing_Crowd_WolfsburgHighway_1" },
+                { "label": "WolfsburgHighway cut_in: Parking (Konrad-Adenauer-Allee, a double parked car pulls out from behind a van)", "value": "cut_in --variant=CutIn_Parking_WolfsburgHighway_1" },
+                { "label": "WolfsburgHighway cut_in: Cyclist (Dresdener Ring, a cyclist hidden by a fire truck changes into the ego lane)", "value": "cut_in --variant=CutIn_Cyclist_WolfsburgHighway_1" }
+            ],
+            "default": "pedestrian_crossing --variant=PedestrianCrossing_Town10HD_1"
+        },
+        {
+            // the variant of the Spots tasks; cut_in has no spot finder (its starts are set by hand)
+            "id": "variant",
+            "type": "pickString",
+            "description": "Variant to find a start for (it must belong to the scenario picked before)",
+            "options": ["PedestrianCrossing_Town10HD_1", "OccludedCrossing_Child_Town10HD_1", "OccludedCrossing_Crowd_Town10HD_1",
+                        "PedestrianCrossing_WolfsburgHighway_1", "OccludedCrossing_Child_WolfsburgHighway_1",
+                        "OccludedCrossing_Crowd_WolfsburgHighway_1"],
+            "default": "PedestrianCrossing_Town10HD_1"
+        },
+        {
+            // who drives the ego; manual also opens the driving window (manual_control.py) by itself, has no time
+            // limit and ends when that window is closed (or with Ctrl-C in the terminal)
+            "id": "drive",
+            "type": "pickString",
+            "description": "Who drives the ego",
+            "options": [
+                { "label": "as in the scenario XML", "value": "xml" },
+                { "label": "autopilot (the scenario drives)", "value": "autopilot" },
+                { "label": "manual (you drive in a window, no time limit; close the window to end)", "value": "manual" }
+            ],
+            "default": "xml"
+        },
+        {
+            // xml = keep the weather configured in the scenario XML; the rest are carla.WeatherParameters presets
+            "id": "weather",
+            "type": "pickString",
+            "description": "Weather",
+            "options": [
+                "xml",
+                "ClearNight", "ClearNoon", "ClearSunset",
+                "CloudyNight", "CloudyNoon", "CloudySunset",
+                "Default", "DustStorm",
+                "HardRainNight", "HardRainNoon", "HardRainSunset",
+                "MidRainSunset", "MidRainyNight", "MidRainyNoon",
+                "SoftRainNight", "SoftRainNoon", "SoftRainSunset",
+                "WetCloudyNight", "WetCloudyNoon", "WetCloudySunset",
+                "WetNight", "WetNoon", "WetSunset"
+            ],
+            "default": "xml"
+        },
+        {
+            // the value is pasted into the command: nothing, or the --record flag
+            "id": "record",
+            "type": "pickString",
+            "description": "Record the run with CARLA's recorder (replay it with Replay: Last run)",
+            "options": [
+                { "label": "no", "value": "" },
+                { "label": "yes", "value": "--record" }
+            ],
+            "default": ""
+        },
+        {
+            // the value is pasted into the command: nothing (the default: autopilot synchronous, manual asynchronous),
+            // --sync or --async
+            "id": "speed",
+            "type": "pickString",
+            "description": "Simulation mode",
+            "options": [
+                { "label": "default: synchronous for autopilot, asynchronous for manual driving", "value": "" },
+                { "label": "synchronous: fixed 0.05 s steps, same result every run, runs as fast as the PC can (--sync)", "value": "--sync" },
+                { "label": "asynchronous: real time, results can vary between runs (--async)", "value": "--async" }
+            ],
+            "default": ""
+        },
+        {
+            "id": "spotNumber",
+            "type": "promptString",
+            "description": "Candidate number N from the Spots: List output",
+            "default": "0"
+        }
+    ]
+}

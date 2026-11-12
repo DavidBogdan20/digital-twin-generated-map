@@ -1,0 +1,17 @@
+# CARLA binary release (several GB) and third-party checkouts
+CARLA_0.9.16/
+CARLA_0.9.15
+external/*
+!external/.gitkeep
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Run results
+outputs/*
+!outputs/.gitkeep
+
+# Per-user Claude Code settings
+.claude/settings.local.json

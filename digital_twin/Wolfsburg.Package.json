@@ -1,0 +1,6 @@
+{
+  "maps": [
+    { "path": "/Game/CustomMaps/Wolfsburg", "name": "Wolfsburg", "use_carla_materials": true }
+  ],
+  "props": []
+}

@@ -1,0 +1,47 @@
+diff --git a/Engine/Source/Developer/MeshMergeUtilities/Private/MeshMergeUtilities.cpp b/Engine/Source/Developer/MeshMergeUtilities/Private/MeshMergeUtilities.cpp
+index 5b98acd6a..63e2fda34 100644
+--- a/Engine/Source/Developer/MeshMergeUtilities/Private/MeshMergeUtilities.cpp
++++ b/Engine/Source/Developer/MeshMergeUtilities/Private/MeshMergeUtilities.cpp
+@@ -1,6 +1,7 @@
+ // Copyright Epic Games, Inc. All Rights Reserved.
+ 
+ #include "MeshMergeUtilities.h"
++#include "Materials/MaterialInstance.h"
+ 
+ #include "Engine/MapBuildDataRegistry.h"
+ #include "Engine/MeshMerging.h"
+@@ -1911,7 +1912,7 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
+ 	FMeshMergeDataTracker DataTracker;
+ 
+ 	const bool bMergeAllLODs = InSettings.LODSelectionType == EMeshLODSelectionType::AllLODs;
+-	const bool bMergeMaterialData = InSettings.bMergeMaterials && InSettings.LODSelectionType != EMeshLODSelectionType::AllLODs;
++	const bool bMergeMaterialData = false;
+ 	const bool bPropagateMeshData = InSettings.bBakeVertexDataToMesh || (bMergeMaterialData && InSettings.bUseVertexDataForBakingMaterial);
+ 
+ 	TArray<FStaticMeshComponentAdapter> Adapters;
+@@ -2747,7 +2748,7 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
+ 		{
+ 			if (Material && (!Material->IsAsset() && InOuter != GetTransientPackage()))
+ 			{
+-				Material = nullptr; // do not save non-asset materials
++				UMaterialInstance* Instance = Cast<UMaterialInstance>(Material); Material = Instance ? Instance->Parent : nullptr; // walls use dynamic materials: keep the parent
+ 			}
+ 			//Make sure we have unique slot name here
+ 			FName MaterialSlotName = DataTracker.GetMaterialSlotName(Material);
+diff --git a/Engine/Source/Runtime/Engine/Private/DistanceFieldAtlas.cpp b/Engine/Source/Runtime/Engine/Private/DistanceFieldAtlas.cpp
+index ed16ba9eb..3545c5f97 100644
+--- a/Engine/Source/Runtime/Engine/Private/DistanceFieldAtlas.cpp
++++ b/Engine/Source/Runtime/Engine/Private/DistanceFieldAtlas.cpp
+@@ -1276,10 +1276,10 @@ void FDistanceFieldAsyncQueue::ProcessAsyncTasks()
+ 				Task->StaticMesh->RenderData->LODResources[0].DistanceFieldData = Task->GeneratedVolumeData;
+ 			}
+ 
+-			OldVolumeData->VolumeTexture.Release();
++			if (OldVolumeData) OldVolumeData->VolumeTexture.Release();
+ 
+ 			// Rendering thread may still be referencing the old one, use the deferred cleanup interface to delete it next frame when it is safe
+-			BeginCleanup(OldVolumeData);
++			if (OldVolumeData) BeginCleanup(OldVolumeData);
+ 
+ 			{
+ 				TArray<uint8> DerivedData;

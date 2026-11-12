@@ -1,0 +1,103 @@
+<?xml version="1.0"?>
+<!--
+  Pedestrian crossing at a junction, on Town10HD_Opt (and WolfsburgHighway, last variant). The autonomous ego (brake sight) stops before the
+  crosswalk while pedestrians or cyclists it can see are crossing, and drives on when it is clear.
+
+  ScenarioRunner config: each <scenario> is one runnable variant. run_scenario.py
+  and find_crossing_spots.py use the first one unless given a variant name.
+    name  - the variant name run_scenario.py runs (must be unique across
+            ScenarioRunner's own examples too)
+    type  - ComposedScenario: the scenario is built from the blocks below by
+            scenarios/_composed/composed_scenario.py, no Python file needed here
+    town  - CARLA map
+
+  Blocks (child elements, each at most once per variant): ego_control, spawning,
+  pedestrian, crowd, cyclists, background, end. A missing crowd, cyclists or
+  background element switches that feature off. The block reference is in the
+  repository README. ego_vehicle and weather are ScenarioRunner's own elements.
+  A run_control element is written by run_scenario.py into its own copy of this
+  file for a manual run with the driving window (it holds the stop file that ends
+  the run when the window is closed); do not write it by hand.
+
+  The ego start must be on a road that leads into a junction, ideally one whose
+  crosswalk the ego lane crosses. Pick one with apps/find_crossing_spots.py
+  (apply option), which writes the x/y/z/yaw of the chosen variant.
+  Note: XML comments must not contain a double hyphen.
+-->
+<scenarios>
+    <scenario name="PedestrianCrossing_Town10HD_1" type="ComposedScenario" town="Town10HD_Opt">
+        <ego_vehicle x="90.33" y="-60.27" z="0.30" yaw="-145.95" model="vehicle.lincoln.mkz_2017" rolename="hero"/>
+
+        <!-- autopilot: ego follows the lane at target_speed (km/h), and the scenario is a single pass: one drive
+         through the crossing, an end condition, pass or fail. manual: you drive it, and the run is endless: no time
+         limit, no distance end, the crossing stays busy (pedestrians and cyclists keep arriving, cross and leave out of
+         view, background traffic follows you) until you close the driving window or press Ctrl-C. To drive without
+         editing this file, run run_scenario.py with its drive option set to manual (the VS Code task Scenario: Run asks
+         for it; the command line flag is in the README: it has a double hyphen, which a comment cannot hold). That
+         overrides the mode for one run and opens the driving window (manual_control.py) by itself. -->
+        <ego_control mode="autopilot" target_speed="30" brake="sight"/>
+
+        <!-- Where actors may appear and vanish while the scenario runs: never in view of the ego. A spot is hidden when
+         it is at least far_distance (m) from the ego in any direction, or at least hide_distance (m) away and more than
+         side_angle (degrees) off its heading (off to the side: a spot straight ahead is in view up to far_distance), or
+         at least behind_distance (m) away and behind the car, more than behind_angle (degrees) off its heading (not
+         while the ego reverses). The element is optional; these are the defaults. It matters for the flows of a manual
+         run; spawns at load, before the scenario starts, are not bound by it. -->
+        <spawning hide_distance="50" far_distance="120" side_angle="60" behind_distance="15" behind_angle="110"/>
+
+        <!-- speed in m/s; the pedestrian starts walking when the ego is within trigger_distance (m) of the point where
+         its lane meets the crosswalk. The crowd and the cyclists start at the same moment. In a manual run there is
+         no single pedestrian: with the crowd, 1 + crowd count pedestrians keep crossing, arriving from within
+         flow_radius (m, default 60, optional) of the crossing. -->
+        <pedestrian model="walker.pedestrian.0001" speed="1.4" trigger_distance="25"/>
+
+        <!-- crowd: count extra pedestrians cross on the same crosswalk, about half from each side, in three columns
+         that queue. The front of each column starts after the same trigger plus a random delay of 0 to max_delay (s),
+         the ones behind a little later; a column walks at one random speed between min_speed and max_speed (m/s).
+         Random walker models. count 0 or no element: no crowd. (Manual run: part of the pedestrian flow; max_delay
+         is not used.) -->
+        <crowd count="10" min_speed="1.1" max_speed="1.8" max_delay="4"/>
+
+        <!-- cyclists: count bicycles (never motorcycles) cross in a cycle lane just beside the zebra, on the junction
+         side, about half from each side. Each waits visibly on the sidewalk beyond the kerb until its turn, starts on
+         the road just inside the kerb and is removed after crossing. Defaults: min_speed 3.0, max_speed 5.0 (m/s),
+         max_delay 3 (s). In a manual run count bicycles keep cycling: each waits 3 to 12 s, rides across and is removed
+         out of view, and a new one waits on a sidewalk spot. -->
+        <cyclists count="2"/>
+
+        <!-- background traffic within radius (m) of the crossing: vehicles 4-wheel cars, motorcycles and bicycles on
+         Traffic Manager autopilot (at least 25 m from the ego start, none in the ego's lanes) and walkers pedestrians
+         wandering to random places. 0 or no element: none. In a manual run the traffic follows the ego: radius is
+         around the ego, and actors far behind it are replaced by new ones ahead, out of view. -->
+        <background vehicles="10" motorcycles="3" bicycles="3" walkers="20" radius="120"/>
+
+        <!-- autopilot: the scenario ends when the ego is distance_after_crossing (m) past the crossing, or after timeout
+         (s); the timeout counts from loading; without a timeout attribute it is max(60, drive distance / ego speed *
+         1.5 + 20) s. Add timeout="..." to override. Manual: no distance end and no timeout (7 days) unless you set
+         timeout here. -->
+        <end distance_after_crossing="30"/>
+
+        <weather cloudiness="20" precipitation="0" sun_altitude_angle="60"/>
+    </scenario>
+
+    <!-- WolfsburgHighway (CARLA 0.9.15 Digital Twin map of Wolfsburg, 4 x 4 tiles of 500 m): the ego drives north on
+     John-F.-Kennedy-Allee (residential, one lane each way, each direction its own OpenDRIVE road) towards the junction
+     at about (1621, -455), 90 m ahead (the next junction back is too close for 120 m). The map's only usable painted
+     crosswalk lies on this approach at the junction entry; the 6 crosswalk outlines of this map are open polygons, so
+     until carsim.road.crosswalks() reads them (see tools/wolfsburg/WOLFSBURG_VARIANTS.md) the crossing falls back to
+     the junction entry, 0.9 m nearer. Either way the walk crosses both lanes from the east sidewalk to the west one.
+     Pose and checks: tools/wolfsburg/wolfsburg_spots.py. z is the OpenDRIVE z plus 0.5 m (the road mesh waves around
+     it). Walkers use the map's navigation mesh (tools/navmesh, installed in the map's Nav folder): background walkers
+     wander between sidewalk points, and the pedestrian and the crowd walk on after crossing. -->
+    <scenario name="PedestrianCrossing_WolfsburgHighway_1" type="ComposedScenario" town="WolfsburgHighway">
+        <ego_vehicle x="1619.37" y="-354.76" z="0.50" yaw="-86.35" model="vehicle.lincoln.mkz_2017" rolename="hero"/>
+        <ego_control mode="autopilot" target_speed="30" brake="sight"/>
+        <spawning hide_distance="50" far_distance="120" side_angle="60" behind_distance="15" behind_angle="110"/>
+        <pedestrian model="walker.pedestrian.0001" speed="1.4" trigger_distance="25"/>
+        <crowd count="10" min_speed="1.1" max_speed="1.8" max_delay="4"/>
+        <cyclists count="2"/>
+        <background vehicles="10" motorcycles="3" bicycles="3" walkers="20" radius="120"/>
+        <end distance_after_crossing="30"/>
+        <weather cloudiness="20" precipitation="0" sun_altitude_angle="60"/>
+    </scenario>
+</scenarios>

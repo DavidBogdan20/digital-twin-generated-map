@@ -1,0 +1,99 @@
+<?xml version="1.0"?>
+<!--
+  Cut-in on Town10HD_Opt (and WolfsburgHighway, the last two variants): a vehicle or cyclist on the lane ahead moves into the ego's lane when the ego gets close,
+  and the ego has to brake or follow it.
+
+  ScenarioRunner config: each <scenario> is one runnable variant. run_scenario.py uses the first one unless given
+  a variant name.
+    name  - the variant name run_scenario.py runs (must be unique across ScenarioRunner's own examples too)
+    type  - ComposedScenario: the scenario is built from the blocks below by
+            scenarios/_composed/composed_scenario.py, no Python file needed here
+    town  - CARLA map
+
+  Variants:
+    CutIn_Parking_Town10HD_1  the ego drives in the kerb lane. On the shoulder ahead a parked van blocks the view,
+                              and just in front of it a parked car pulls out into the ego lane when the ego is close
+    CutIn_Cyclist_Town10HD_1  the ego drives in the inner lane. In the kerb lane ahead, car A, a cyclist and a fire
+                              truck (nearest the ego) all ride at the cyclist's speed, and the truck hides the cyclist. When the
+                              ego is close, the cyclist moves into the ego lane and rides on ahead of it
+
+  Blocks (child elements, each at most once per variant): ego_control, cut_in, background, end. cut_in: kind is parking or
+  cyclist; distance is the m along the ego lane from its start to the cut-in actor; trigger_distance is the m from
+  the ego to the actor when the cut-in starts; speed is in m/s. ego_vehicle and weather are ScenarioRunner's own
+  elements.
+
+  brake="sight" on ego_control: the ego is a cautious driver. It sees only what the simulator's line-of-sight rays
+  show it. It brakes for any visible actor in its path, and follows a visible slower vehicle or cyclist in its lane.
+  A hidden actor does not count until it is visible, so the ego can be surprised by one. brake is ignored in
+  manual mode.
+
+  The ego starts are set below. Parking needs a
+  shoulder on the right of the kerb lane, cyclist needs a kerb lane on the right of the inner lane. See the README.
+-->
+<scenarios>
+    <scenario name="CutIn_Parking_Town10HD_1" type="ComposedScenario" town="Town10HD_Opt">
+        <ego_vehicle x="-28.21" y="140.54" z="0.30" yaw="0.35" model="vehicle.lincoln.mkz_2017" rolename="hero"/>
+
+        <!-- autopilot: the ego follows its lane at target_speed (km/h) and brakes as brake="sight" describes. -->
+        <ego_control mode="autopilot" target_speed="30" brake="sight"/>
+
+        <!-- parked car that pulls out: the car is 66 m ahead of the ego start on the shoulder, and the parked van
+         stands just behind it, nearer the ego. The car starts moving when the ego is 15 m away, at 4 m/s. -->
+        <cut_in kind="parking" distance="66" trigger_distance="15" speed="4"/>
+
+        <!-- end: the scenario ends when the ego has driven distance (m), or after timeout (s). -->
+        <end distance="100" timeout="90"/>
+
+        <!-- background: random traffic and pedestrians wandering the sidewalks, vehicles, motorcycles, bicycles and walkers within radius (m) of the ego. -->
+        <background vehicles="8" motorcycles="2" bicycles="2" walkers="15" radius="120"/>
+
+        <weather cloudiness="20" precipitation="0" sun_altitude_angle="60"/>
+    </scenario>
+
+    <scenario name="CutIn_Cyclist_Town10HD_1" type="ComposedScenario" town="Town10HD_Opt">
+        <ego_vehicle x="-28.19" y="137.04" z="0.30" yaw="0.40" model="vehicle.lincoln.mkz_2017" rolename="hero"/>
+
+        <!-- autopilot: the ego follows its lane at target_speed (km/h) and brakes as brake="sight" describes. -->
+        <ego_control mode="autopilot" target_speed="30" brake="sight"/>
+
+        <!-- cyclist that cuts in: the cyclist is 40 m ahead of the ego start (the ego starts at its test speed, so the cut-in comes about 6 s in), car A (3 m ahead of it) and a fire
+         truck (1.5 m behind it, attribute blocker) are on the kerb lane. The cyclist changes into the ego lane when the
+         ego is 14 m away, at 4 m/s. -->
+        <cut_in kind="cyclist" distance="40" trigger_distance="14" speed="4"/>
+
+        <!-- end: the scenario ends when the ego has driven distance (m), or after timeout (s). -->
+        <end distance="90" timeout="90"/>
+
+        <!-- background: random traffic and pedestrians wandering the sidewalks, vehicles, motorcycles, bicycles and walkers within radius (m) of the ego. -->
+        <background vehicles="8" motorcycles="2" bicycles="2" walkers="15" radius="120"/>
+
+        <weather cloudiness="20" precipitation="0" sun_altitude_angle="60"/>
+    </scenario>
+
+    <!-- WolfsburgHighway: Konrad-Adenauer-Allee (tertiary, two lanes each way), road 2964, 162 m without a junction.
+     The map has no shoulder or parking lane anywhere, so the parked van and car stand in the kerb lane (double
+     parked, as a delivery van does) and the ego drives in the inner lane, left of them: the car pulls out of the kerb
+     lane into the ego lane. This needs cut_in kind parking to accept a same direction Driving kerb lane where there is
+     no shoulder (the proposed change in tools/wolfsburg/WOLFSBURG_VARIANTS.md); until then this variant stops with
+     the shoulder error. z is the OpenDRIVE z plus 0.5 m. -->
+    <scenario name="CutIn_Parking_WolfsburgHighway_1" type="ComposedScenario" town="WolfsburgHighway">
+        <ego_vehicle x="1558.63" y="-1100.43" z="0.50" yaw="-131.08" model="vehicle.lincoln.mkz_2017" rolename="hero"/>
+        <ego_control mode="autopilot" target_speed="30" brake="sight"/>
+        <cut_in kind="parking" distance="66" trigger_distance="15" speed="4"/>
+        <end distance="100" timeout="90"/>
+        <background vehicles="8" motorcycles="2" bicycles="2" walkers="15" radius="120"/>
+        <weather cloudiness="20" precipitation="0" sun_altitude_angle="60"/>
+    </scenario>
+
+    <!-- WolfsburgHighway: Dresdener Ring (tertiary, two lanes each way), road 3159, 122 m without a junction, a gentle
+     bend (7 degrees). The ego starts in the inner lane 10 m after the junction; the convoy rides in the kerb lane, which
+     has a sidewalk on its right and permits a change to the left (broken line). z is the OpenDRIVE z plus 0.5 m. -->
+    <scenario name="CutIn_Cyclist_WolfsburgHighway_1" type="ComposedScenario" town="WolfsburgHighway">
+        <ego_vehicle x="888.31" y="-1691.46" z="0.50" yaw="138.86" model="vehicle.lincoln.mkz_2017" rolename="hero"/>
+        <ego_control mode="autopilot" target_speed="30" brake="sight"/>
+        <cut_in kind="cyclist" distance="40" trigger_distance="14" speed="4"/>
+        <end distance="90" timeout="90"/>
+        <background vehicles="8" motorcycles="2" bicycles="2" walkers="15" radius="120"/>
+        <weather cloudiness="20" precipitation="0" sun_altitude_angle="60"/>
+    </scenario>
+</scenarios>

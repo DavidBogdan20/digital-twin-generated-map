@@ -1,0 +1,125 @@
+<?xml version="1.0"?>
+<!--
+  Occluded crossing on Town10HD_Opt (and WolfsburgHighway, the last two variants): a truck stopped in the kerb lane just before a crosswalk hides the crossers
+  from the ego, which drives in the lane to the left of the kerb lane (the inner lane, same direction).
+
+  ScenarioRunner config: each <scenario> is one runnable variant. run_scenario.py uses the first one unless given
+  a variant name.
+    name  - the variant name run_scenario.py runs (must be unique across ScenarioRunner's own examples too)
+    type  - ComposedScenario: the scenario is built from the blocks below by
+            scenarios/_composed/composed_scenario.py, no Python file needed here
+    town  - CARLA map
+
+  Variants:
+    OccludedCrossing_Child_Town10HD_1  a child waits on the sidewalk behind a bus stop and walks across the
+                                       crosswalk in front of the truck, out of the shadow of both
+    OccludedCrossing_Crowd_Town10HD_1  the same truck, and a busy crosswalk: a pedestrian, a crowd and cyclists
+                                       from both sides
+
+  Blocks (child elements, each at most once per variant): ego_control, occluder, pedestrian, crowd, cyclists, background, end.
+  occluder is the truck in the kerb lane, before the crosswalk, with one car queued behind it (gap is the distance
+  from the truck front to the crosswalk, queue the number of cars behind it). prop is a static prop on the sidewalk
+  (a bus stop) just before the crosswalk, beside the child's start, so the child is hidden while it waits. ego_vehicle and weather are
+  ScenarioRunner's own elements.
+
+  brake="sight" on ego_control: the ego is a cautious driver. It sees only what the simulator's line-of-sight rays
+  show it. It stops before the crosswalk while a visible crosser is on it, waits until the way is clear, and brakes
+  for any visible actor in its path. A hidden actor does not count until it is visible, so the ego can be surprised
+  by one. brake is ignored in manual mode.
+
+  The ego start is on the inner lane, on a road that leads into a junction with a crosswalk. Pick it with
+  apps/find_crossing_spots.py, with its lane option set to inner (see the README for the command line), which
+  writes the x/y/z/yaw of the chosen variant. The values below are the live-tuned starts; to pick a new one, use the command in the README.
+-->
+<scenarios>
+    <scenario name="OccludedCrossing_Child_Town10HD_1" type="ComposedScenario" town="Town10HD_Opt">
+        <ego_vehicle x="62.49" y="-60.92" z="0.30" yaw="359.98" model="vehicle.lincoln.mkz_2017" rolename="hero"/>
+
+        <!-- autopilot: the ego follows its lane at target_speed (km/h) and brakes as brake="sight" describes. The
+         scenario is a single pass: one drive through the crossing, an end condition, pass or fail. The child variant
+         runs at 23 km/h, not 30: the child starts walking when the ego is speed x 6.8 s from it, and on Town10HD the ego
+         must then be on the last straight before the crossing, where the truck and the bus stop still hide the child.
+         The ego starts 90 m before the crossing, on the straight before the curve. -->
+        <ego_control mode="autopilot" target_speed="23" brake="sight"/>
+
+        <!-- truck: stopped in the kerb lane, gap m (default 1.5) from its front to the near edge of the crosswalk;
+         queue cars (default 1) wait behind it. prop: a bus stop on the kerb side with its long side along the road,
+         just before the crosswalk and reaching past the child's start, so the child is hidden from the ego lane
+         while it waits and the truck hides it as it walks out. -->
+        <occluder gap="1.5" queue="1" prop="static.prop.busstop"/>
+
+        <!-- child walker: waits on the right kerb behind the bus stop, then walks right to left across the crosswalk
+         in front of the truck. age selects the walker blueprint (adult or child), so it has no model attribute.
+         speed in m/s (1.39 is 5 km/h, the NCAP child). overlap is the share of the ego width, from the child's side,
+         that the child is hit at when the ego does not brake: 50 is the centre line (NCAP CPNCO also uses 25 and
+         75). The walk starts when the ego's time to arrival at that point equals the child's walk time to it, so
+         the hit lands there at any ego speed, and trigger_distance is not set. -->
+        <pedestrian age="child" speed="1.39" overlap="50"/>
+
+        <!-- end: the scenario ends when the ego is distance_after_crossing (m) past the crossing, or after timeout (s). -->
+        <end distance_after_crossing="30" timeout="90"/>
+
+        <!-- background: random traffic and pedestrians wandering the sidewalks, vehicles, motorcycles, bicycles and walkers within radius (m) of the ego. -->
+        <background vehicles="8" motorcycles="2" bicycles="2" walkers="15" radius="120"/>
+
+        <weather cloudiness="20" precipitation="0" sun_altitude_angle="60"/>
+    </scenario>
+
+    <scenario name="OccludedCrossing_Crowd_Town10HD_1" type="ComposedScenario" town="Town10HD_Opt">
+        <ego_vehicle x="62.49" y="-60.92" z="0.30" yaw="359.98" model="vehicle.lincoln.mkz_2017" rolename="hero"/>
+        <ego_control mode="autopilot" target_speed="30" brake="sight"/>
+
+        <!-- the same truck as the child variant. -->
+        <occluder gap="1.5" queue="1"/>
+
+        <!-- pedestrian and crowd: the crossing is busy, with count extra pedestrians on the same crosswalk, about half
+         from each side. The crowd starts at the same trigger as the pedestrian, plus a random delay of 0 to max_delay (s). -->
+        <pedestrian speed="1.4" trigger_distance="35"/>
+        <crowd count="14" min_speed="1.0" max_speed="1.6" max_delay="6"/>
+
+        <!-- cyclists: count bicycles cross in a cycle lane beside the zebra, about half from each side. The count is 2 here: 4 let a bicycle knock a
+         crowd walker off the crosswalk. -->
+        <cyclists count="2"/>
+
+        <end distance_after_crossing="30" timeout="120"/>
+
+        <!-- background: random traffic and pedestrians wandering the sidewalks, vehicles, motorcycles, bicycles and walkers within radius (m) of the ego. -->
+        <background vehicles="8" motorcycles="2" bicycles="2" walkers="15" radius="120"/>
+
+        <weather cloudiness="20" precipitation="0" sun_altitude_angle="60"/>
+    </scenario>
+
+    <!-- WolfsburgHighway: Konrad-Adenauer-Allee (tertiary, a dual carriageway: two lanes each way, the directions
+     separate OpenDRIVE roads with a 10 m median). The ego drives south west in the inner lane (road 2964 lane -1) on a
+     straight 90 m approach to the junction with the side street at about (1464, -1232). No crosswalk on this map lies
+     on a road with two lanes per direction, so the child crosses at the junction entry (the scenario's own fallback
+     without a painted crosswalk): from the right sidewalk across the kerb lane and the ego lane into the median.
+     The truck stands in the kerb lane 1.5 m before the junction entry, the bus stop on the sidewalk just before it.
+     The child starts walking about 4.9 s before the impact, with the ego about 31 m away on the straight. Beyond
+     the junction the road climbs gently (about 0.4 m in the 30 m the ego drives past the crossing). z is the
+     OpenDRIVE z plus 0.5 m. Pose and checks: tools/wolfsburg/wolfsburg_spots.py. -->
+    <scenario name="OccludedCrossing_Child_WolfsburgHighway_1" type="ComposedScenario" town="WolfsburgHighway">
+        <ego_vehicle x="1512.79" y="-1156.03" z="0.50" yaw="-125.85" model="vehicle.lincoln.mkz_2017" rolename="hero"/>
+        <ego_control mode="autopilot" target_speed="23" brake="sight"/>
+        <occluder gap="1.5" queue="1" prop="static.prop.busstop"/>
+        <pedestrian age="child" speed="1.39" overlap="50"/>
+        <end distance_after_crossing="30" timeout="90"/>
+        <background vehicles="8" motorcycles="2" bicycles="2" walkers="15" radius="120"/>
+        <weather cloudiness="20" precipitation="0" sun_altitude_angle="60"/>
+    </scenario>
+
+    <!-- WolfsburgHighway: the same start, truck and junction as the child variant. The far side of the walk is the
+     10 m median of the dual carriageway, so the crowd and cyclists of the far side wait there (no sidewalk lane in
+     the median; their ground height is the road's). -->
+    <scenario name="OccludedCrossing_Crowd_WolfsburgHighway_1" type="ComposedScenario" town="WolfsburgHighway">
+        <ego_vehicle x="1512.79" y="-1156.03" z="0.50" yaw="-125.85" model="vehicle.lincoln.mkz_2017" rolename="hero"/>
+        <ego_control mode="autopilot" target_speed="30" brake="sight"/>
+        <occluder gap="1.5" queue="1"/>
+        <pedestrian speed="1.4" trigger_distance="35"/>
+        <crowd count="14" min_speed="1.0" max_speed="1.6" max_delay="6"/>
+        <cyclists count="2"/>
+        <end distance_after_crossing="30" timeout="120"/>
+        <background vehicles="8" motorcycles="2" bicycles="2" walkers="15" radius="120"/>
+        <weather cloudiness="20" precipitation="0" sun_altitude_angle="60"/>
+    </scenario>
+</scenarios>

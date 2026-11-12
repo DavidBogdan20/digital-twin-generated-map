@@ -1,0 +1,57 @@
+crosswalk polygons: raw 0, closed 6; buildings 1210
+proposed crosswalks() fix on the raw map: 6 polygons, the same as the closed outlines
+
+== chosen spots ==
+  [raw] PedestrianCrossing_WolfsburgHighway_1: ego {'x': 1619.37, 'y': -354.76, 'z': 0.5, 'yaw': -86.35, 'road': 3177, 'lane': -1, 'name': 'residential|John-F.-Kennedy-Allee'} | crossing (1621.69, -443.81) 89.0 m ahead, crosswalk False, walk 8.5 m, crowd 14/14, cyclists 2/2 (waiting spots 2), building clearance 26.4 m, turn 4/1/1 deg, ok
+      pedestrian start (1624.44, -443.82, 1.00) end (1615.94, -443.80); end of run 119 m from the start
+      roads over/under the drive: none
+  [closed] PedestrianCrossing_WolfsburgHighway_1: ego {'x': 1619.37, 'y': -354.76, 'z': 0.5, 'yaw': -86.35, 'road': 3177, 'lane': -1, 'name': 'residential|John-F.-Kennedy-Allee'} | crossing (1621.69, -444.71) 89.9 m ahead, crosswalk True, walk 11.0 m, crowd 14/14, cyclists 2/2 (waiting spots 2), building clearance 25.0 m, turn 4/1/1 deg, ok
+      pedestrian start (1625.44, -444.70, 1.00) end (1614.44, -444.72); end of run 120 m from the start
+      roads over/under the drive: none
+  [raw] OccludedCrossing_Child_WolfsburgHighway_1: ego {'x': 1512.79, 'y': -1156.03, 'z': 0.5, 'yaw': -125.85, 'road': 2964, 'lane': -1, 'name': 'tertiary|Konrad-Adenauer-Allee'} | crossing (1464.10, -1231.60) 90.0 m ahead, crosswalk False, walk 9.0 m, crowd 14/14, cyclists 2/2 (waiting spots 2), building clearance 15.7 m, turn 3/0/0 deg, ok
+      pedestrian start (1469.36, -1234.98, 1.00) end (1461.79, -1230.12); end of run 120 m from the start
+      roads over/under the drive: none
+  [closed] OccludedCrossing_Child_WolfsburgHighway_1: ego {'x': 1512.79, 'y': -1156.03, 'z': 0.5, 'yaw': -125.85, 'road': 2964, 'lane': -1, 'name': 'tertiary|Konrad-Adenauer-Allee'} | crossing (1464.10, -1231.60) 90.0 m ahead, crosswalk False, walk 9.0 m, crowd 14/14, cyclists 2/2 (waiting spots 2), building clearance 15.7 m, turn 3/0/0 deg, ok
+      pedestrian start (1469.36, -1234.98, 1.00) end (1461.79, -1230.12); end of run 120 m from the start
+      roads over/under the drive: none
+  [raw] OccludedCrossing_Crowd_WolfsburgHighway_1: ego {'x': 1512.79, 'y': -1156.03, 'z': 0.5, 'yaw': -125.85, 'road': 2964, 'lane': -1, 'name': 'tertiary|Konrad-Adenauer-Allee'} | crossing (1464.10, -1231.60) 90.0 m ahead, crosswalk False, walk 9.0 m, crowd 14/14, cyclists 2/2 (waiting spots 2), building clearance 15.7 m, turn 3/0/0 deg, ok
+      pedestrian start (1469.36, -1234.98, 1.00) end (1461.79, -1230.12); end of run 120 m from the start
+      roads over/under the drive: none
+  [closed] OccludedCrossing_Crowd_WolfsburgHighway_1: ego {'x': 1512.79, 'y': -1156.03, 'z': 0.5, 'yaw': -125.85, 'road': 2964, 'lane': -1, 'name': 'tertiary|Konrad-Adenauer-Allee'} | crossing (1464.10, -1231.60) 90.0 m ahead, crosswalk False, walk 9.0 m, crowd 14/14, cyclists 2/2 (waiting spots 2), building clearance 15.7 m, turn 3/0/0 deg, ok
+      pedestrian start (1469.36, -1234.98, 1.00) end (1461.79, -1230.12); end of run 120 m from the start
+      roads over/under the drive: none
+  CutIn_Parking_WolfsburgHighway_1: ego {'x': 1558.63, 'y': -1100.43, 'z': 0.5, 'yaw': -131.08, 'road': 2964, 'lane': -1, 'name': 'tertiary|Konrad-Adenauer-Allee'} | junction-free 162 m, turn 9 deg, dz 0.00, kerb sidewalk True, ok
+      roads over/under the drive: none
+      car at (1519.32, -1153.11) road 2964 lane -2
+      van at (1523.42, -1147.62) road 2964 lane -2
+  CutIn_Cyclist_WolfsburgHighway_1: ego {'x': 888.31, 'y': -1691.46, 'z': 0.5, 'yaw': 138.86, 'road': 3159, 'lane': -1, 'name': 'tertiary|Dresdener Ring'} | junction-free 122 m, turn 7 deg, dz 0.00, kerb sidewalk True, ok
+      roads over/under the drive: none
+      cyclist at (856.52, -1666.44) road 3159 lane -2
+      car A at (852.14, -1661.91) road 3159 lane -2
+      blocker at (861.24, -1671.27) road 3159 lane -2
+  [raw] PedestrianCrossing_backup: ego {'x': 1605.81, 'y': -499.86, 'z': 0.5, 'yaw': 179.15, 'road': 2978, 'lane': -1, 'name': 'residential|Goerdelerstraße'} | crossing (1486.82, -498.13) 119.0 m ahead, crosswalk False, walk 8.5 m, crowd 14/14, cyclists 2/2 (waiting spots 2), building clearance 18.1 m, turn 0/0/0 deg, ok
+      pedestrian start (1486.78, -500.88, 1.00) end (1486.91, -492.38); end of run 149 m from the start
+      roads over/under the drive: none
+  [closed] PedestrianCrossing_backup: ego {'x': 1605.81, 'y': -499.86, 'z': 0.5, 'yaw': 179.15, 'road': 2978, 'lane': -1, 'name': 'residential|Goerdelerstraße'} | crossing (1486.82, -498.13) 119.0 m ahead, crosswalk False, walk 8.5 m, crowd 14/14, cyclists 2/2 (waiting spots 2), building clearance 18.1 m, turn 0/0/0 deg, ok
+      pedestrian start (1486.78, -500.88, 1.00) end (1486.91, -492.38); end of run 149 m from the start
+      roads over/under the drive: none
+  [raw] OccludedCrossing_Child_backup: ego {'x': 944.4, 'y': -1827.24, 'z': 0.5, 'yaw': -110.1, 'road': 3026, 'lane': -2, 'name': 'tertiary|Frankfurter Straße'} | crossing (919.02, -1912.90) 90.0 m ahead, crosswalk False, walk 12.5 m, crowd 14/14, cyclists 2/2 (waiting spots 2), building clearance inf m, turn 6/3/25 deg, ok
+      pedestrian start (925.09, -1914.39, 1.00) end (912.95, -1911.42); end of run 120 m from the start
+      roads over/under the drive: none
+  [closed] OccludedCrossing_Child_backup: ego {'x': 944.4, 'y': -1827.24, 'z': 0.5, 'yaw': -110.1, 'road': 3026, 'lane': -2, 'name': 'tertiary|Frankfurter Straße'} | crossing (919.02, -1912.90) 90.0 m ahead, crosswalk False, walk 12.5 m, crowd 14/14, cyclists 2/2 (waiting spots 2), building clearance inf m, turn 6/3/25 deg, ok
+      pedestrian start (925.09, -1914.39, 1.00) end (912.95, -1911.42); end of run 120 m from the start
+      roads over/under the drive: none
+  CutIn_Parking_backup: ego {'x': 888.31, 'y': -1691.46, 'z': 0.5, 'yaw': 138.86, 'road': 3159, 'lane': -1, 'name': 'tertiary|Dresdener Ring'} | junction-free 122 m, turn 7 deg, dz 0.00, kerb sidewalk True, ok
+      roads over/under the drive: none
+      car at (838.41, -1647.68) road 3159 lane -2
+      van at (843.21, -1652.67) road 3159 lane -2
+  CutIn_Cyclist_backup: ego {'x': 956.56, 'y': -1796.8, 'z': 0.5, 'yaw': -112.22, 'road': 3026, 'lane': -2, 'name': 'tertiary|Frankfurter Straße'} | junction-free 122 m, turn 8 deg, dz 0.00, kerb sidewalk True, ok
+      roads over/under the drive: none
+      cyclist at (945.30, -1835.02) road 3026 lane -3
+      car A at (943.15, -1840.95) road 3026 lane -3
+      blocker at (947.57, -1828.77) road 3026 lane -3
+
+== highway merge proposal (K 92 on-ramp, junction 219) ==
+  ego start {'x': 1138.85, 'y': -1320.58, 'z': 0.5, 'yaw': 130.84, 'road': 3011, 'lane': -2, 'name': 'trunk|Braunschweiger Straße'} ; 40 m to the merge
+  acceleration lane road 3139 lane -3: about 94 m, then it ends; lane change of the main lane: Left
+  ramp: [(3051, 'trunk_link|'), (3139, 'trunk|Braunschweiger Straße'), (3685, ':27195361_0')]
