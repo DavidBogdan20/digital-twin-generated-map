@@ -2,6 +2,3 @@ __pycache__/
 *.pyc
 .venv/
 .DS_Store
-*.osm
-*.xodr
-*.bin
