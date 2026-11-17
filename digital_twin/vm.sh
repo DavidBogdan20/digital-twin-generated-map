@@ -253,6 +253,15 @@ scenario() {  # the A 39 elevation scenario on Wolfsburg2, full screen, after ch
   "
 }
 
+publish() {  # publishes the hero car's state as JSON lines on 127.0.0.1:2100 for a client through an SSH tunnel
+  # (publish.py, HERBIE_DATA_PLAN.md). Usage: vm.sh publish [rate Hz, default 10]; runs until stopped, whatever map or scenario
+  box "
+    pkill -f '^python3 -u /work/dt/publish.py' || true
+    export PYTHONPATH=$(ls $CARLA/PythonAPI/carla/dist/*py3.8*.egg)
+    nohup python3 -u $WORK/dt/publish.py ${1:-10} > $WORK/logs/publish.log 2>&1 &
+  "
+}
+
 chart() {  # draws logs/elevation.png from the last scenario run
   box "
     python3 -c 'import matplotlib' 2>/dev/null || python3 -m pip install --user -q matplotlib==3.7.5

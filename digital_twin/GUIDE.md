@@ -36,6 +36,8 @@ Files in this folder:
 | `move_lights.py` | Moves traffic light stop lines off stub roads in a road file. `vm.sh lights` runs it on an installed map |
 | `fix_speed_signs.py` | Makes stock CARLA's 100/110/120 km/h signs set their own limit, not 90. `vm.sh speedsigns` |
 | `signals_check.py` | Lists a map's lights and signs and checks that autopilot cars obey them |
+| `publish.py` | Sends the hero car's state as JSON lines on the VM's port 2100, for a laptop through an SSH tunnel. `vm.sh publish` |
+| `tunnel_check.py` | Reads the hero car straight from CARLA (`CarlaReader`, used by `publish.py`) and prints rates and round trips |
 | `Wolfsburg_no_uturns.xodr` | The road file now installed on the VM, after `remove_uturns.py` |
 | `drive_test.py` | Drives a hero car with traffic and reports how far they get |
 | `shots/` | Camera views from the finished map |
@@ -82,7 +84,7 @@ gcloud compute instances create carla --zone=us-east4-c --machine-type=g2-standa
 Steps then run through the tunnel:
 
 ```sh
-gcloud compute ssh carla --zone=us-west1-a --tunnel-through-iap --command="sudo /work/dt/vm.sh <step>"
+gcloud compute ssh carla --zone=europe-west4-b --tunnel-through-iap --command="sudo /work/dt/vm.sh <step>"
 ```
 
 **Moved to Oregon on 2026-11-09.** The original VM in `us-east4-c` wouldn't restart because no GPU was free there. Claude saved
@@ -96,6 +98,11 @@ gcloud compute instances create carla --zone=<zone> --source-machine-image=carla
 
 Oregon has no Cloud NAT, so the copy can't download anything. CARLA doesn't need to, and SSH through IAP still works.
 
+**Moved to the Netherlands on 2026-11-13.** The Oregon VM was stopped and saved as `carla-image-eu` (190 GB, stored in
+`europe-west4`, so no transfer fee to copy it back there), then created as `carla` in `europe-west4-b` after about 80
+minutes of every europe-west4 zone answering ZONE_RESOURCE_POOL_EXHAUSTED. Its NAT is `carla-router-eu` / `carla-nat-eu`.
+The copy was checked on 2026-11-16 (files, maps, GPU licence, Tailscale, NAT) and the Oregon and Virginia VMs, their disks and their NATs were deleted. `carla-image` (us) and `carla-image-eu` are kept. A stopped VM can hit the same shortage when started again; retry.
+
 
 ## Stage 2: first test
 
@@ -104,7 +111,7 @@ Claude copies this folder to `/work/dt` and runs `setup`, `start`, `stock` and `
 To see the screen, run this in a Mac terminal and leave it open:
 
 ```sh
-gcloud compute ssh carla --zone=us-west1-a --tunnel-through-iap -- -N -L 5901:localhost:5900
+gcloud compute ssh carla --zone=europe-west4-b --tunnel-through-iap -- -N -L 5901:localhost:5900
 ```
 
 Then run this in a second terminal. The password is `carlavnc`.
@@ -197,7 +204,7 @@ freezes it for several minutes while Traffic Manager builds its road map), ESC t
 VNC is too slow for driving, so the picture goes through **Sunshine** on the VM and **Moonlight** on the Mac. The L4
 compresses it like a game stream. They connect over **Tailscale**, since the VM has no public address. One-time setup:
 
-1. Cloud NAT in the VM's region, so it can download: `carla-router-west` and `carla-nat-west` in `us-west1`, created
+1. Cloud NAT in the VM's region, so it can download: now `carla-router-eu` and `carla-nat-eu` in `europe-west4`, created
    like Stage 1's, with `--enable-endpoint-independent-mapping` so Tailscale can connect directly.
 2. `vm.sh stream` installs both and prints a Tailscale link. Open it and approve the device `carla`.
 3. On the Mac: Tailscale (signed in to the same account) and Moonlight (`brew install --cask moonlight`).
@@ -434,7 +441,7 @@ The two OSM files also had tags with `&`, `|` or `*` removed, because users trac
 - Nobody has reported this exact combination working. Stages 2 and 5 test it.
 - Google documents Vulkan on the L4 with the virtual workstation licence, but no report of CARLA on it was
   found. Stage 2 checks that `nvidia-smi -q` shows the licence and that Vulkan reaches the GPU in the container.
-- The remote screen goes through the tunnel to Virginia, so it will lag more than a nearby direct connection.
+- The remote screen went through the tunnel to Virginia at first (now the Netherlands), so it will lag more than a nearby direct connection.
 - It isn't confirmed that free trial credit pays for GPUs after upgrading. Check **Billing** after the first
   hour. Whatever the credit doesn't cover goes on your card.
 - Linux users on plain 0.9.15 report that buildings crash. The material baking edit stopped that on Tiny (35 of

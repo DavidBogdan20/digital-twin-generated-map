@@ -2,7 +2,7 @@
 
 The code and inputs behind **WolfsburgHighway**, a 2 x 2 km CARLA 0.9.15 map of Wolfsburg generated from
 OpenStreetMap with CARLA's Digital Twin Tool, and the scenarios that run on it. It all ran on a Google Cloud VM
-(`carla`, us-west1-a, an L4 GPU) inside the `carla` Docker container (Ubuntu 20.04, Python 3.8). Snapshot of
+(`carla`, europe-west4-b in the Netherlands, an L4 GPU) inside the `carla` Docker container (Ubuntu 20.04, Python 3.8). Snapshot of
 2026-11-12.
 
 | Path | On the VM / Mac | What it is |
@@ -56,6 +56,9 @@ gets).
 - **Check a map:** `level_audit.py` / `check_level.py` / `level_prune.py`, `check_heights.py`, `merge_test.py` (ramps
   and bridges), `surface_check.py`, `jiggle_test.py`, `signals_check.py` (traffic lights and signs, with autopilot
   cars), `map_test.py`, `drive_test.py`, `dormant_grid.py`.
+- **Share it:** `publish.py` (`vm.sh publish`) sends the hero car's state as JSON lines on port 2100 for the Herbie
+  laptop through an SSH tunnel; `tunnel_check.py` reads the same state straight from CARLA. See `HERBIE_CONNECTION.md`
+  and `HERBIE_DATA_PLAN.md`.
 - **Drive it:** `drive.py` is CARLA's `manual_control.py` as patched by `vm.sh drive`; `elevation_scenario.py` and
   `elevation_chart.py` are the A 39 elevation scenario on the older Wolfsburg2 map.
 - **One-off probes** used while debugging (kept as they were on the VM): `edge_probe.py`, `jiggle_probe.py`,
