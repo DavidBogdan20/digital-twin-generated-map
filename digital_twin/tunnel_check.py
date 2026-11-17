@@ -1,4 +1,4 @@
-"""Read-only check of what a client gets from CARLA 0.9.15, locally or at the far end of a tunnel.
+"""Read-only check of what a client gets from CARLA 0.9.16, locally or at the far end of a tunnel.
 
 usage: tunnel_check.py [host, default localhost] [seconds, default 30]
 Prints the server version and map, then once a second: snapshots received in that second, frames missed, the round
@@ -18,7 +18,7 @@ class CarlaReader:
         self.client = carla.Client(host, port)
         self.client.set_timeout(30.0)  # the first get_map() downloads the 4 MB road file through the tunnel
         version = self.client.get_server_version()
-        assert version.startswith("0.9.15"), version
+        assert version.startswith("0.9.16"), version
         self.role, self.world, self.latest = role, None, None
         self._attach()
 

@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""Applies the small fixes the Wolfsburg build needs. GUIDE.md explains each one.
+"""Applies the small fixes the Wolfsburg build needs to CARLA 0.9.16 and its Unreal. GUIDE.md explains each one.
 
 Run it after fetching Unreal and again after cloning CARLA. Running it twice is safe.
-Every line it prints starts with "ok" or "not yet". It stops if a file isn't as expected.
+Every line it prints starts with "ok" or "not yet" ("not yet": that folder doesn't exist yet).
+It checks every patch before writing anything: if any file isn't as expected, it says which and changes nothing.
 Usage: apply_patches.py [UE4 folder] [CARLA folder]    or    apply_patches.py --selftest
 """
+import contextlib
+import io
 import sys
 import tempfile
 from pathlib import Path
@@ -102,6 +105,8 @@ FLAT = "    return 0.0f;  // patched (apply_patches.py): no made-up waves, roads
 # a sidewalk that left a trench up to 80 cm deep and 2.56 m wide, and a wheel just past the lane edge fell into it.
 TRENCH = "return GetHeight(Origin.X * 0.01f, Origin.Y * 0.01f, true) * 100.0f - {}.0f;"
 PATCHES = [
+    # Engine: written against CarlaUnreal 8d08ab7fe (patches/unreal-4.26-8d08ab7fe.diff). CARLA 0.9.16 builds with the
+    # head of CarlaUnreal's carla branch, not checked here; if its text differs, the script stops before any write.
     (UE4_DIR, "Engine/Source/Runtime/Engine/Private/DistanceFieldAtlas.cpp",
      "OldVolumeData->VolumeTexture.Release();",
      "if (OldVolumeData) OldVolumeData->VolumeTexture.Release();"),
@@ -119,19 +124,19 @@ PATCHES = [
      "Material = nullptr; // do not save non-asset materials",
      "UMaterialInstance* Instance = Cast<UMaterialInstance>(Material); "
      "Material = Instance ? Instance->Parent : nullptr; // walls use dynamic materials: keep the parent"),
-    (CARLA_DIR, "Util/BuildTools/Setup.sh",
-     "boostorg.jfrog.io/artifactory/main",
-     "archives.boost.io"),
+    # Fixed upstream in 0.9.16 (boost URL, roads without a speed record, meshes without a material). Kept as checks
+    # (old = new), so an older CARLA stops here instead of being built without them.
+    (CARLA_DIR, "Util/BuildTools/Setup.sh", "https://archives.boost.io/release/", "https://archives.boost.io/release/"),
+    (CARLA_DIR, "LibCarla/source/carla/road/Map.cpp",
+     'transforms.push_back(std::make_pair(treeTransform, "urban"));',
+     'transforms.push_back(std::make_pair(treeTransform, "urban"));'),
+    (CARLA_DIR, "Unreal/CarlaUE4/Plugins/Carla/Source/Carla/Commandlet/PrepareAssetsForCookingCommandlet.cpp",
+     "Material = UMaterial::GetDefaultMaterial(MD_Surface);",
+     "Material = UMaterial::GetDefaultMaterial(MD_Surface);"),
     (CARLA_DIR, "Util/BuildTools/Setup.sh",
      "libpng16/${LIBPNG_VERSION}/",
      "libpng16/older-releases/${LIBPNG_VERSION}/"),
-    (CARLA_DIR, "LibCarla/source/carla/road/Map.cpp",
-     "transforms.push_back(std::make_pair(treeTransform,roadinfo->GetType()));",
-     'transforms.push_back(std::make_pair(treeTransform, roadinfo ? roadinfo->GetType() : std::string("urban")));'),
-    (CARLA_DIR, "Unreal/CarlaUE4/Plugins/Carla/Source/Carla/Commandlet/PrepareAssetsForCookingCommandlet.cpp",
-     "UMaterialInterface *Material = Mesh->GetMaterial(i);",
-     "UMaterialInterface *Material = Mesh->GetMaterial(i); "
-     "if (!Material) { Material = UMaterial::GetDefaultMaterial(MD_Surface); }"),
+    # The tool converts the downloaded .osm and overwrites the .xodr; a prepared one (vm.sh prepared) is kept instead.
     (CARLA_DIR, "Unreal/CarlaUE4/Plugins/CarlaTools/Source/CarlaTools/Private/Online/CustomFileDownloader.cpp",
      OSM,
      'FString Prepared = FilePath.Replace(TEXT(".osm"), TEXT(".xodr")); '
@@ -159,40 +164,73 @@ PATCHES = [
 ]
 
 
-def patch(path, old, new):
-    """Returns what happened to the file. Works on bytes so nothing else in it changes."""
-    data = path.read_bytes()
+def patch(data, old, new):
+    """Returns the patched bytes and what happened. Works on bytes so nothing else in the file changes."""
     old, new = old.encode(), new.encode()
     if new in data:
-        return "ok       (already patched)"
+        return data, "ok       (already patched)"
     if data.count(old) != 1:
-        sys.exit(f"{path} has {data.count(old)} matches for '{old.decode()}', expected 1. Stop and tell Claude.")
-    path.write_bytes(data.replace(old, new))
-    return "ok      "
+        raise ValueError(f"has {data.count(old)} matches for '{old.decode()}', expected 1")
+    return data.replace(old, new), "ok      "
 
 
 def main(ue4, carla):
     roots = {UE4_DIR: Path(ue4), CARLA_DIR: Path(carla)}
+    files, report, problems = {}, [], []
     for root, name, old, new in PATCHES:
         path = roots[root] / name
-        print(patch(path, old, new) if path.exists() else "not yet ", path.name)
+        if not roots[root].is_dir():  # vm.sh runs this once before CARLA is cloned
+            report.append("not yet  " + path.name)
+            continue
+        try:
+            files[path], what = patch(files[path] if path in files else path.read_bytes(), old, new)
+            report.append(what + " " + path.name)
+        except (OSError, ValueError) as e:
+            problems.append(f"{path}: {e}")
+    if problems:
+        sys.exit("\n".join(problems) + "\nNothing was changed (patches/*.diff show what each patch does). "
+                 "Stop and tell Claude.")
+    for path, data in files.items():
+        if data != path.read_bytes():
+            path.write_bytes(data)
+    print("\n".join(report))
 
 
 def selftest():
-    with tempfile.TemporaryDirectory() as d:
-        f = Path(d) / "x"
-        f.write_bytes(b"a old b")
-        assert patch(f, "old", "if (y) old").startswith("ok")
-        assert f.read_bytes() == b"a if (y) old b"
-        assert "already" in patch(f, "old", "if (y) old")
-        assert f.read_bytes() == b"a if (y) old b"
-        f.write_bytes(b"moved")
+    assert patch(b"a old b", "old", "if (y) old") == (b"a if (y) old b", "ok      ")
+    assert "already" in patch(b"a if (y) old b", "old", "if (y) old")[1]
+    try:
+        patch(b"moved", "old", "new")
+    except ValueError as e:
+        assert "expected 1" in str(e)
+    else:
+        raise AssertionError("a changed file must stop the script")
+    # a CARLA tree holding every anchor once, and no Unreal yet
+    with tempfile.TemporaryDirectory() as d, contextlib.redirect_stdout(io.StringIO()):
+        carla = Path(d) / "carla"
+        for root, name, old, _ in PATCHES:
+            if root == CARLA_DIR:
+                (carla / name).parent.mkdir(parents=True, exist_ok=True)
+                with open(carla / name, "a") as f:
+                    f.write(old + "\n")
+        tree = lambda: {p: p.read_bytes() for p in carla.rglob("*") if p.is_file()}
+        broken = carla / PATCHES[-1][1]
+        before = broken.read_bytes()
+        broken.write_bytes(before.replace(PATCHES[-1][2].encode(), b"moved"))
+        stock = tree()
         try:
-            patch(f, "old", "new")
+            main(Path(d) / "UE4", carla)
         except SystemExit as e:
             assert "expected 1" in str(e)
+            assert tree() == stock, "one changed anchor must leave every file as it was"
         else:
             raise AssertionError("a changed file must stop the script")
+        broken.write_bytes(before)
+        main(Path(d) / "UE4", carla)
+        once = tree()
+        assert once != stock
+        main(Path(d) / "UE4", carla)
+        assert tree() == once, "a second run must change nothing"
     print("selftest ok")
 
 

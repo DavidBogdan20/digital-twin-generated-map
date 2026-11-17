@@ -10,7 +10,7 @@ Offline check of the metrics block (src/carsim/blocks/metrics.py) and its plumbi
     sensor in initialise(), turns the first contact into the impact, and finish() destroys the sensor and writes the file
     named by CARSIM_METRICS_FILE once (safe to repeat; no file without the variable or without a tick)
   - the plumbing: scenario_runner_env puts the file path into the environment (and drops a stale one), read_metrics
-    and metrics_summary of run_config, and write_run_config's copy of the XML (it runs on Python 3.8, without
+    and metrics_summary of run_config, and write_run_config's copy of the XML (also on Python 3.8, without
     ElementTree.indent): the drive, the stop file and the raised ego z of the variant only
 
     python tests/check_metrics_offline.py

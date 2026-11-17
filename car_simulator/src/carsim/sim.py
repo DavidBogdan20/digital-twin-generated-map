@@ -104,7 +104,7 @@ def ensure_map(client, town, load_timeout=600.0, timeout=30.0, tile_stream_dista
     if town not in names:
         raise RuntimeError(
             f"Map '{town}' is not installed on the server. Installed maps: {', '.join(sorted(names))}.\n"
-            "Town12/Town13 come with AdditionalMaps_0.9.15 (extract it into the CARLA root folder).")
+            "Town12/Town13 come with AdditionalMaps_0.9.16.zip (extract it into the CARLA root folder).")
 
     print(f"Loading {town} (large maps can take several minutes)...")
     client.set_timeout(load_timeout)
@@ -323,7 +323,7 @@ def reset_world(client, traffic_manager_port=None, all_controllers=False):
     removed_sensors = 0
     for sensor in sensors:
         try:
-            if sensor.is_listening:
+            if sensor.is_listening():
                 sensor.stop()
         except RuntimeError:
             pass

@@ -3,7 +3,7 @@ Well-known locations in the repository.
 
 CARLA_ROOT and SCENARIO_RUNNER_ROOT can be overridden with environment
 variables; by default they point at the folders inside this repository
-(on Linux scripts/setup_env_linux.sh links CARLA_0.9.15 to the CARLA install).
+(on Linux scripts/setup_env_linux.sh links CARLA_0.9.16 to the CARLA install).
 """
 
 import os
@@ -12,7 +12,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # Made absolute, so a relative environment variable keeps working after a program changes its working directory
-CARLA_ROOT = Path(os.path.abspath(os.environ.get("CARLA_ROOT", REPO_ROOT / "CARLA_0.9.15")))
+CARLA_ROOT = Path(os.path.abspath(os.environ.get("CARLA_ROOT", REPO_ROOT / "CARLA_0.9.16")))
 SCENARIO_RUNNER_ROOT = Path(os.path.abspath(
     os.environ.get("SCENARIO_RUNNER_ROOT", REPO_ROOT / "external" / "scenario_runner")))
 

@@ -5,10 +5,10 @@ This is the code side of `HERBIE_CONNECTION.md`. The VM publishes the ego car's 
 ## What runs on the VM
 
 **Server**
-- Stock CARLA **0.9.15**.
+- Stock CARLA **0.9.16** (0.9.15 until the 2026-11-17 move; the measurements below were taken on 0.9.15).
 - The scenarios use the map **WolfsburgHighway**. Its geo origin is 52.38568 N, 10.731333 E, so positions can be turned into latitude and longitude.
 
-**A scenario run** (`run_scenario.py` with ScenarioRunner 0.9.15)
+**A scenario run** (`run_scenario.py` with ScenarioRunner for 0.9.16)
 - **Timing:** synchronous, in fixed 0.05 s steps, run as fast as the VM can, which is **not real time**. `--async` runs in real time, but the scenario results are then not valid.
 - **Ego car:** `vehicle.lincoln.mkz_2017` with `role_name = "hero"`.
   - Driven by the scenario's own driver, targeting 30 km/h. It sometimes holds 2nd gear.
@@ -28,7 +28,7 @@ Measured on 2026-11-13 with a test `hero` on WolfsburgHighway and the Mac in pla
 | updates | about 110 a second, roughly half the frames dropped | 10 a second, none lost |
 | one request | about 370 ms | none |
 | time to connect | 12 s (downloads the 4 MB road file) | immediate |
-| laptop needs | `carla==0.9.15` and Python 3.7 to 3.10 | nothing |
+| laptop needs | `carla==0.9.16` and Python 3.10 to 3.12 (was `carla==0.9.15`, Python 3.7 to 3.10) | nothing |
 
 Capping CARLA's frame rate (`-ExecCmds="t.MaxFPS 20"`) had no effect on the packaged CARLA. It wouldn't cover scenario runs anyway, because their fixed steps run as fast as ScenarioRunner ticks.
 

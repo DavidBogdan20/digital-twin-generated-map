@@ -1,17 +1,8 @@
 diff --git a/LibCarla/source/carla/road/Map.cpp b/LibCarla/source/carla/road/Map.cpp
-index e746ad893..77e1f338e 100644
+index 68db4bc..859d378 100644
 --- a/LibCarla/source/carla/road/Map.cpp
 +++ b/LibCarla/source/carla/road/Map.cpp
-@@ -1237,7 +1237,7 @@ namespace road {
-                 geom::Transform lanetransform = lane->ComputeTransform(s_current);
-                 geom::Transform treeTransform(treeposition, lanetransform.rotation);
-                 const carla::road::element::RoadInfoSpeed* roadinfo = lane->GetInfo<carla::road::element::RoadInfoSpeed>(s_current);
--                transforms.push_back(std::make_pair(treeTransform,roadinfo->GetType()));
-+                transforms.push_back(std::make_pair(treeTransform, roadinfo ? roadinfo->GetType() : std::string("urban")));
-               }
-               s_current += distancebetweentrees;
-             }
-@@ -1528,7 +1528,14 @@ namespace road {
+@@ -1665,7 +1665,14 @@ namespace road {
        junction_out_mesh_list) const {
  
        const auto& junction = _data.GetJunctions().at(Id);
@@ -27,21 +18,8 @@ index e746ad893..77e1f338e 100644
          std::vector<std::unique_ptr<geom::Mesh>> lane_meshes;
          std::vector<std::unique_ptr<geom::Mesh>> sidewalk_lane_meshes;
          std::vector<carla::geom::Vector3D> perimeterpoints;
-diff --git a/Unreal/CarlaUE4/Plugins/Carla/Source/Carla/Commandlet/PrepareAssetsForCookingCommandlet.cpp b/Unreal/CarlaUE4/Plugins/Carla/Source/Carla/Commandlet/PrepareAssetsForCookingCommandlet.cpp
-index f9b18dbb8..c6276530c 100644
---- a/Unreal/CarlaUE4/Plugins/Carla/Source/Carla/Commandlet/PrepareAssetsForCookingCommandlet.cpp
-+++ b/Unreal/CarlaUE4/Plugins/Carla/Source/Carla/Commandlet/PrepareAssetsForCookingCommandlet.cpp
-@@ -33,7 +33,7 @@ static bool ValidateStaticMesh(UStaticMesh *Mesh)
- 
-   for (int i = 0; i < Mesh->StaticMaterials.Num(); i++)
-   {
--    UMaterialInterface *Material = Mesh->GetMaterial(i);
-+    UMaterialInterface *Material = Mesh->GetMaterial(i); if (!Material) { Material = UMaterial::GetDefaultMaterial(MD_Surface); }
-     const FString MaterialName = Material->GetName();
- 
-     if (MaterialName.Contains(TEXT("light"), ESearchCase::IgnoreCase) ||
 diff --git a/Unreal/CarlaUE4/Plugins/CarlaTools/Source/CarlaTools/Private/Online/CustomFileDownloader.cpp b/Unreal/CarlaUE4/Plugins/CarlaTools/Source/CarlaTools/Private/Online/CustomFileDownloader.cpp
-index 79f306c6c..6ff7f8c99 100644
+index 79f306c..6ff7f8c 100644
 --- a/Unreal/CarlaUE4/Plugins/CarlaTools/Source/CarlaTools/Private/Online/CustomFileDownloader.cpp
 +++ b/Unreal/CarlaUE4/Plugins/CarlaTools/Source/CarlaTools/Private/Online/CustomFileDownloader.cpp
 @@ -33,6 +33,7 @@ void UCustomFileDownloader::ConvertOSMInOpenDrive(FString FilePath, float Lat_0,
@@ -53,10 +31,10 @@ index 79f306c6c..6ff7f8c99 100644
  
    osm2odr::OSM2ODRSettings Settings;
 diff --git a/Unreal/CarlaUE4/Plugins/CarlaTools/Source/CarlaTools/Private/OpenDriveToMap.cpp b/Unreal/CarlaUE4/Plugins/CarlaTools/Source/CarlaTools/Private/OpenDriveToMap.cpp
-index 8ee027793..4a7a82e56 100644
+index d1bee7c..06d390a 100644
 --- a/Unreal/CarlaUE4/Plugins/CarlaTools/Source/CarlaTools/Private/OpenDriveToMap.cpp
 +++ b/Unreal/CarlaUE4/Plugins/CarlaTools/Source/CarlaTools/Private/OpenDriveToMap.cpp
-@@ -451,6 +451,72 @@ void UOpenDriveToMap::LoadMap()
+@@ -472,6 +472,72 @@ void UOpenDriveToMap::LoadMap()
    }
  }
  
@@ -129,7 +107,7 @@ index 8ee027793..4a7a82e56 100644
  TArray<AActor*> UOpenDriveToMap::GenerateMiscActors(float Offset, FVector MinLocation, FVector MaxLocation )
  {
    carla::geom::Vector3D CarlaMinLocation(MinLocation.X / 100, MinLocation.Y / 100, MinLocation.Z /100);
-@@ -463,6 +529,7 @@ TArray<AActor*> UOpenDriveToMap::GenerateMiscActors(float Offset, FVector MinLoc
+@@ -484,6 +550,7 @@ TArray<AActor*> UOpenDriveToMap::GenerateMiscActors(float Offset, FVector MinLoc
    for (auto& cl : Locations)
    {
      const FVector scale{ 1.0f, 1.0f, 1.0f };
@@ -137,7 +115,7 @@ index 8ee027793..4a7a82e56 100644
      cl.first.location.z = GetHeight(cl.first.location.x, cl.first.location.y) + 0.3f;
      FTransform NewTransform ( FRotator(cl.first.rotation), FVector(cl.first.location), scale );
  
-@@ -732,6 +799,7 @@ void UOpenDriveToMap::GenerateTreePositions( const boost::optional<carla::road::
+@@ -757,6 +824,7 @@ void UOpenDriveToMap::GenerateTreePositions( const boost::optional<carla::road::
    for (auto &cl : Locations)
    {
      const FVector scale{ 1.0f, 1.0f, 1.0f };
@@ -145,7 +123,7 @@ index 8ee027793..4a7a82e56 100644
      cl.first.location.z  = GetHeight(cl.first.location.x, cl.first.location.y) + 0.3f;
      FTransform NewTransform ( FRotator(cl.first.rotation), FVector(cl.first.location), scale );
      NewTransform = GetSnappedPosition(NewTransform);
-@@ -791,13 +859,7 @@ float UOpenDriveToMap::GetHeight(float PosX, float PosY, bool bDrivingLane){
+@@ -816,13 +884,7 @@ float UOpenDriveToMap::GetHeight(float PosX, float PosY, bool bDrivingLane){
        return LandscapeHeight;
      }
    }else{
@@ -160,7 +138,7 @@ index 8ee027793..4a7a82e56 100644
    }
  }
  
-@@ -840,7 +902,7 @@ float UOpenDriveToMap::GetHeightForLandscape( FVector Origin ){
+@@ -865,7 +927,7 @@ float UOpenDriveToMap::GetHeightForLandscape( FVector Origin ){
      CollisionQuery,
      CollisionParams) )
    {
@@ -170,19 +148,10 @@ index 8ee027793..4a7a82e56 100644
      return GetHeight(Origin.X * 0.01f, Origin.Y * 0.01f, true) * 100.0f - 1.0f;
    }
 diff --git a/Util/BuildTools/Setup.sh b/Util/BuildTools/Setup.sh
-index 5277db2ac..62b5f8072 100755
+index 9f93676..4246be3 100755
 --- a/Util/BuildTools/Setup.sh
 +++ b/Util/BuildTools/Setup.sh
-@@ -91,7 +91,7 @@ for PY_VERSION in ${PY_VERSION_LIST[@]} ; do
-     BOOST_PACKAGE_BASENAME=boost_${BOOST_VERSION//./_}
- 
-     log "Retrieving boost."
--    wget "https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VERSION}/source/${BOOST_PACKAGE_BASENAME}.tar.gz" || true
-+    wget "https://archives.boost.io/release/${BOOST_VERSION}/source/${BOOST_PACKAGE_BASENAME}.tar.gz" || true
-     # try to use the backup boost we have in Jenkins
-     if [[ ! -f "${BOOST_PACKAGE_BASENAME}.tar.gz" ]] ; then
-       log "Using boost backup"
-@@ -339,7 +339,7 @@ unset RECAST_BASENAME
+@@ -422,7 +422,7 @@ unset RECAST_BASENAME
  # ==============================================================================
  
  LIBPNG_VERSION=1.6.37

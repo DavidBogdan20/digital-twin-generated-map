@@ -1,14 +1,14 @@
-# The build environment. Ubuntu 20.04 is the newest system CARLA 0.9.15 documents; Google's driver needs 22.04+ on the host.
-# The first package lines are the list from 0.9.15's build_linux.md. The rest are what Unreal's window needs.
-FROM ubuntu:20.04
+# The build and run environment. Ubuntu 22.04 with Python 3.10: CARLA 0.9.16 documents 22.04, and its client wheels
+# need Python 3.10+. The first package lines are the list from 0.9.16's build_linux.md (CARLA builds with Unreal's own
+# clang, so no system clang). The rest are what Unreal's window, the scripts and the bundle need.
+FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
-      build-essential clang-10 lld-10 g++-7 cmake ninja-build libvulkan1 python python-dev python3-dev \
-      python3-pip libpng-dev libtiff5-dev libjpeg-dev tzdata sed curl unzip autoconf libtool rsync \
-      libxml2-dev git \
-      aria2 wget sudo xdg-user-dirs vulkan-utils libsdl2-2.0-0 libomp5 libnss3 libgtk-3-0 libasound2 \
-      libxcursor1 libxi6 libxrandr2 libxss1 libxinerama1 libxcb-glx0 libdbus-1-3
-RUN pip3 install -Iv setuptools==47.3.1 && pip3 install distro wheel auditwheel
-RUN update-alternatives --install /usr/bin/clang++ clang++ /usr/lib/llvm-10/bin/clang++ 180 && \
-    update-alternatives --install /usr/bin/clang clang /usr/lib/llvm-10/bin/clang 180
+      build-essential g++-12 cmake ninja-build libvulkan1 python3 python3-dev python3-pip python3-venv autoconf \
+      wget curl rsync unzip git git-lfs libpng-dev libtiff5-dev libjpeg-dev python-is-python3 \
+      tzdata sed libtool libxml2-dev aria2 sudo xdg-user-dirs vulkan-tools libsdl2-2.0-0 libomp5 libnss3 \
+      libgtk-3-0 libasound2 libxcursor1 libxi6 libxrandr2 libxss1 libxinerama1 libxcb-glx0 libdbus-1-3 zstd
+# CARLA's pins for building its Python API with 3.10 (Util/Docker/requirements/3.10/build.txt), and the client itself
+RUN pip3 install auditwheel==5.1.0 build==1.3.0 distro==1.9.0 packaging==24.0 pyelftools==0.31 setuptools==65.5.0 \
+      wheel==0.43.0 carla==0.9.16
 RUN useradd -m -u 1000 carla && echo 'carla ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/carla

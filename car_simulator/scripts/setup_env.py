@@ -9,9 +9,9 @@ project itself uses the Python 3.11 venv that uv builds from pyproject.toml):
 Run it from a terminal where .venv is NOT activated.
 
 Steps (each is skipped when already done, so it is safe to re-run):
-  1. clone ScenarioRunner v0.9.15 into external/scenario_runner
+  1. clone ScenarioRunner v0.9.16 into external/scenario_runner
   2. get uv (pip install --user uv if it is not on PATH)
-  3. install Python 3.10 with uv
+  3. install Python 3.11 with uv
   4. uv python pin + uv sync --locked: create .venv and install the locked dependencies from
      pyproject.toml / uv.lock, plus this project's carsim package (editable)
   5. write car_simulator.pth so CARLA's PythonAPI/carla (the 'agents'
@@ -27,7 +27,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-CARLA_ROOT = Path(os.path.abspath(os.environ.get("CARLA_ROOT", REPO_ROOT / "CARLA_0.9.15")))  # absolute: it goes into a .pth
+CARLA_ROOT = Path(os.path.abspath(os.environ.get("CARLA_ROOT", REPO_ROOT / "CARLA_0.9.16")))  # absolute: it goes into a .pth
 SR_ROOT = REPO_ROOT / "external" / "scenario_runner"
 SR_URL = "https://github.com/carla-simulator/scenario_runner.git"
 VENV = REPO_ROOT / ".venv"
@@ -53,8 +53,8 @@ def find_uv():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--python", default="3.10", help="Python version for .venv (3.10: carla 0.9.15 has no newer wheel)")
-    parser.add_argument("--sr-tag", default="v0.9.15", help="ScenarioRunner git tag")
+    parser.add_argument("--python", default="3.11", help="Python version for .venv (3.10 or 3.11)")
+    parser.add_argument("--sr-tag", default="v0.9.16", help="ScenarioRunner git tag")
     parser.add_argument("--recreate", action="store_true", help="delete and rebuild .venv")
     args = parser.parse_args()
 

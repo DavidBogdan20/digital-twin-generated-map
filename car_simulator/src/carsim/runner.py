@@ -170,7 +170,7 @@ def start_manual_control(host="127.0.0.1", port=2000, log_file=None, tm_port=810
     """
     Start manual_control.py (the driving window) as a child process and return the Popen (see start_window): this
     interpreter, ScenarioRunner's folder and environment, through manual_control_wrapper() so that its
-    set_autopilot(False) uses Traffic Manager `tm_port` (CARLA 0.9.15 would make one on 8000).
+    set_autopilot(False) uses Traffic Manager `tm_port` (CARLA would make one on 8000).
     """
     script = manual_control_script()
     if not script.is_file():

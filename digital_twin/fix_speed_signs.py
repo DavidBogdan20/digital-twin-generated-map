@@ -1,4 +1,5 @@
-# Makes CARLA 0.9.15's 100, 110 and 120 km/h signs set their own limit instead of 90. Usage: fix_speed_signs.py <CARLA>
+# Makes stock CARLA's 100, 110 and 120 km/h signs set their own limit instead of 90. Usage: fix_speed_signs.py <CARLA>
+# Found in 0.9.15; on a release that has it right it prints "already sets", and on an unknown layout it stops.
 # A speed sign spawned from the road file has two trigger boxes: CARLA's, with the road file's value, and the sign
 # blueprint's own, with a value stored in the blueprint. BP_SpeedLimit100/110/120 were copied from BP_SpeedLimit90 and
 # still store 90 (the only 90.0 float in their .uexp; every other BP_SpeedLimitNN stores NN), so a car passing a 100

@@ -3,7 +3,7 @@
 Offline check of the time-based start of the pedestrian (<pedestrian overlap="50"/>, carsim.road.impact_point), no CARLA
 server needed. Checked:
 
-  - impact_point on the 3 inner-lane starts of Town10HD (4 on CARLA 0.9.16): for 25, 50 and 75 % the impact lies on the walk line, that far
+  - impact_point on the 3 inner-lane starts of Town10HD: for 25, 50 and 75 % the impact lies on the walk line, that far
     (50 - overlap % of the ego width) right of the ego route, the 50 % one on the route's centre line, and the aim point
     is on the route, the ego's half length before the impact
   - a kinematic run, no braking: the ego at a constant 20, 30 and 40 km/h, the pedestrian starting when the condition
@@ -156,7 +156,7 @@ def check_validation():
 def main():
     cmap = carla.Map("Town10HD", xodr_path("Town10HD").read_text(encoding="utf-8"))
     candidates = find_candidates(cmap, 60.0, lane="inner")
-    check(len(candidates) == 3, f"{len(candidates)} inner-lane starts on Town10HD, expected 3 (CARLA 0.9.15)")
+    check(len(candidates) == 3, f"{len(candidates)} inner-lane starts on Town10HD, expected 3 (upstream: 4)")
     check_geometry(candidates)
     check_kinematics(candidates)
     module = load_scenario_module(COMPOSED_SCENARIO_FILE)

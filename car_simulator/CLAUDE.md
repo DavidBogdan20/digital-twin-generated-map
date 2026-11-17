@@ -5,11 +5,10 @@ Team rules for Claude Code sessions in this repo. `README.md` is the user manual
 
 ## Project and goal
 
-- Custom CARLA driving scenarios, composed from XML blocks (`src/carsim/blocks/`, run by
-  `scenarios/_composed/composed_scenario.py`). This branch (`wolfsburg-0915`) targets **CARLA 0.9.15 only** (server,
-  client, maps; ScenarioRunner v0.9.15) on Linux: a Google Cloud VM, Docker container `carla`, Python 3.8, plus the
-  large generated map WolfsburgHighway. Never install or use any 0.9.16 artifact. `PORTING_0.9.15.md` has the setup,
-  run commands and what changed; the Windows/0.9.16 notes below are the original workflow.
+- Custom CARLA 0.9.16 driving scenarios, run with ScenarioRunner v0.9.16 on Windows or Linux (a Docker container with
+  Ubuntu 22.04 and Python 3.10, CARLA at `/work/stock`), plus the large generated map WolfsburgHighway. Scenarios are
+  composed from XML blocks (`src/carsim/blocks/`, run by `scenarios/_composed/composed_scenario.py`). `PORTING.md`
+  lists what differs from upstream; the old CARLA 0.9.15 port is git tag `carla-0.9.15`.
 - The scenarios mirror Euro NCAP AEB tests: child behind an obstruction, crowded crosswalk, parking cut-in, cyclist
   cut-in hidden by a truck. The long-term aim is to collect data and develop algorithms that make the car detect and
   react faster.
@@ -21,14 +20,14 @@ Team rules for Claude Code sessions in this repo. `README.md` is the user manual
 
 ## Commands
 
-- Linux (the VM): `bash scripts/setup_env_linux.sh` once, then `python3 <script>` from the repo root (no venv, pip
-  --user). Offline checks locally: the Docker image of `scripts/test_image.Dockerfile` (commands in `PORTING_0.9.15.md`).
-  The rest of this section is the Windows workflow.
+- Linux: `bash scripts/setup_env_linux.sh` once, then `python3 <script>` from the repo root (no venv, pip --user,
+  carla 0.9.16 from PyPI). Offline checks locally: the Docker image of `scripts/test_image.Dockerfile` (commands in
+  `PORTING.md`). The rest of this section is the Windows workflow.
 
 - Always run from the repo root as `python -m uv run python <script>`. uv is not on PATH, and PowerShell blocks
   `.venv\Scripts\Activate.ps1`, so never activate the venv.
-- Python is 3.10 (`.python-version`): carla 0.9.15 has no newer wheel. Add dependencies with `uv add`, never pip
-  (on Linux: pinned in `scripts/setup_env_linux.sh`).
+- Python is 3.11 (`.python-version`; 3.10 in the Linux container). 3.12 breaks ScenarioRunner's numpy pin. Add
+  dependencies with `uv add`, never pip (on Linux: pinned in `scripts/setup_env_linux.sh`).
 - Offline checks (no server). All must exit 0 before a change is done:
   `tests/check_blocks_offline.py`, `check_crossings_offline.py`, `check_flows_offline.py`, `check_driver_offline.py`,
   `check_cut_in_offline.py`, `check_trigger_offline.py`, `check_metrics_offline.py`, `check_chase_view_offline.py`
@@ -58,9 +57,10 @@ Team rules for Claude Code sessions in this repo. `README.md` is the user manual
   `cyclists` do). `cut_in` keeps its own value under another name.
 - `blocks/spec.py` is plain data with no CARLA or ScenarioRunner imports, so validation works without them. Keep it so.
 
-## CARLA 0.9.15 and large generated maps (WolfsburgHighway)
+## Large generated maps (WolfsburgHighway)
 
-- Python 3.8 on the VM: no 3.9+ stdlib (`ET.indent`, `str.removeprefix`, `list[int]` at runtime, ...).
+The facts below were measured on CARLA 0.9.15 (the map was built there); recheck them on 0.9.16.
+
 - `load_world` resets `tile_stream_distance`/`actor_active_distance` to 3000/2000, which crashed the server:
   `sim.ensure_map` sets 600/450 after every load. Tiles stream around the `hero`, else the spectator. Move the spectator
   in short steps (`sim.focus_spectator` does): big jumps crashed Vulkan.
@@ -72,20 +72,19 @@ Team rules for Claude Code sessions in this repo. `README.md` is the user manual
   (`road.deformation`, LibCarla Deformation.h); WolfsburgHighway (fourth build, `road.FLAT_MAPS`) has flat roads.
   Sidewalks are 0.30 m higher on every generated map. So on generated maps every block spawn and `set_transform` goes
   through `ctx.surface(...)` (an offline check scans for it) and run_scenario spawns the ego on it. Never on Town maps.
-- SR v0.9.15 has no `--frameRate` (20 Hz fixed); its `manual_control.py` runs through `apps/manual_control_tm.py`
-  (set_autopilot would make a Traffic Manager on 8000).
+- ScenarioRunner's `manual_control.py` runs through `apps/manual_control_tm.py` (set_autopilot would make a Traffic
+  Manager on 8000).
 - Traffic Manager on port 8100 (8000 is taken on the VM); its first start on a large map takes minutes. Never create one
   in `reset_world` by default (`traffic_manager_port=None`).
-- Town10HD's OpenDRIVE of 0.9.15 gives 3 inner-lane candidates (4 on 0.9.16); some Town03/04/05/10HD candidates miss
-  geometry checks (`KNOWN_MARGINAL` in `tests/check_crossings_offline.py`). All blueprints the scenarios use exist.
 
-## CARLA 0.9.16 facts (mostly true for 0.9.15 too)
+## CARLA 0.9.16 facts
 
 - `world.cast_ray` returns many hits labelled `CityObjectLabel.NONE` (invisible volumes: one about 0.2 m from the
   eye on every ray, a capsule around each walker). Ignore them for line of sight. Real occluders are labelled: trucks
   and vans `Truck`, walkers `Pedestrians`, bicycles `Bicycle`. A hit has no actor id.
-- `CityObjectLabel` has no `Vehicles` member (that was before 0.9.14; the 0.9.15 docs still list it, the 0.9.15 API
-  does not): use `Car`, `Truck`, `Bus`, `Motorcycle`, `Bicycle`.
+- `CityObjectLabel` has no `Vehicles` member (that was before 0.9.14): use `Car`, `Truck`, `Bus`, `Motorcycle`,
+  `Bicycle`.
+- `Sensor.is_listening` is a method in 0.9.16 (`sensor.is_listening()`), a property in older clients.
 - Walker blueprints carry an `age` attribute (adult, child, teenager). Children are `walker.pedestrian.0009` to
   `0014`, `0048`, `0049`.
 - `LocalPlanner` and `BasicAgent` `target_speed` is in km/h. `LocalPlanner.__init__` calls `vehicle.get_world()`, so

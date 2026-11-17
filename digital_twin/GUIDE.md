@@ -1,7 +1,9 @@
-# CARLA Digital Twin on a Google Cloud Linux VM (CARLA 0.9.15)
+# CARLA Digital Twin on a Linux GPU machine (CARLA 0.9.16)
 
 Goal: generate the Wolfsburg map with the Digital Twin Tool on a rented Linux VM, run it there in stock
-CARLA 0.9.15, and watch and control it from the MacBook. No 0.9.16 files are used.
+CARLA, and watch and control it from the MacBook. This log was written on CARLA 0.9.15 on a Google Cloud VM
+(tag `carla-0.9.15`); since 2026-11-17 the project targets 0.9.16 on any Linux machine with an NVIDIA GPU.
+`../MIGRATION.md` moves the finished map to a new machine, and the "Versions" section below says what changed.
 
 The map stays on the VM. A Linux-built map can't move to the Mac's Windows simulator, and the Mac setup
 doesn't change.
@@ -13,8 +15,8 @@ with `vm.sh`.
 |---|---|---|---|
 | 1. Create the VM | You sign in, Claude creates it | Minutes, or up to days for GPU quota | The VM |
 | 2. First test | Claude, then you look | 1 h | Stock CARLA on your MacBook's screen. **Stop here if it fails** |
-| 3. Build Unreal | Claude | 1 h 25 min | Unreal at the commit 0.9.15 was released on |
-| 4. Build CARLA | Claude | 25 min, then 50 min for the editor's first start | CARLA 0.9.15 with its assets |
+| 3. Build Unreal | Claude | 1 h 25 min | Unreal from the head of CarlaUnreal's `carla` branch |
+| 4. Build CARLA | Claude | 25 min, then 50 min for the editor's first start | CARLA 0.9.16 with its assets |
 | 5. Tiny test | Claude, you watch | 2 h | 500 m map with 37 buildings. **Stop here if it fails** |
 | 6. Wolfsburg rectangle | Claude, you watch | 8-13 h | The 4.5 x 2.4 km area from the screenshot |
 
@@ -28,7 +30,7 @@ Files in this folder:
 | File | What it is |
 |---|---|
 | `vm.sh` | Every step that runs on the VM |
-| `Dockerfile` | The Ubuntu 20.04 build environment |
+| `Dockerfile` | The Ubuntu 22.04 build environment, with the `carla` 0.9.16 client |
 | `apply_patches.py` | Applies the fixes listed at the bottom of this guide |
 | `open_tool.py` | Runs inside the editor: opens the tool and takes commands from `cmd.py` |
 | `facades.py` | Runs inside the editor: gives the grey generated walls CARLA's facade materials |
@@ -50,6 +52,9 @@ Map area: min lat `52.38568`, min lon `10.71738`, max lat `52.40763`, max lon `1
 
 
 ## Stage 1: create the VM
+
+This stage is Google Cloud only. Elsewhere, any Ubuntu 22.04 or 24.04 machine with an NVIDIA GPU works;
+`../MIGRATION.md` lists what it needs.
 
 The VM is `g2-standard-32` (32 vCPU, 128 GB RAM, one NVIDIA L4 with 24 GB) with the virtual workstation
 licence, Ubuntu 22.04 and a 400 GB disk, in Virginia (`us-east4-c`). Every Netherlands, Belgium, London, Frankfurt
@@ -411,13 +416,22 @@ through all 17 on-ramps and exits (both highways) and fails on a launch (1.5 m o
 under), a stop of over 3 s or a route not finished.
 
 
-## How this stays on 0.9.15
+## Versions
 
-- **No 0.9.16 files.** The tool, its blueprints and the simulator that runs the map are all 0.9.15's.
-- **Tag 0.9.15.2** changes no code in `Unreal/` or `LibCarla/` compared with 0.9.15, only links and docs.
-- **The engine is pinned to commit `8d08ab7fe`**, the state of the `carla` branch when 0.9.15 was released.
-- **The map runs in stock CARLA 0.9.15**, the official Linux download with no edits. The edits below only
-  affect the machine's build tools.
+- **CARLA 0.9.16**, tag `0.9.16`, built from source with `apply_patches.py`. The map runs in stock CARLA 0.9.16, the
+  official Linux download with no edits; the edits only affect the build machine's tools.
+- **Unreal** comes from the head of CarlaUnreal's `carla` branch, as 0.9.16's build guide clones it. `fetch` writes the
+  commit to `/work/logs/engine_commit`; set `ENGINE_REF` in `vm.sh` to it to pin a rebuild. The engine edits were
+  matched against `8d08ab7fe`, the 0.9.15 engine. If the branch head changed those lines, `engine` stops before
+  changing anything and names the file.
+- **Until 2026-11-17** this was CARLA 0.9.15.2 (no code changes from 0.9.15) with the engine pinned to `8d08ab7fe`,
+  stock 0.9.15, an Ubuntu 20.04 container and Python 3.8. The tag `carla-0.9.15` keeps that state.
+- **In 0.9.16 upstream:** the Boost link, the `Map.cpp` tree null check and the `PrepareAssetsForCookingCommandlet.cpp`
+  null check. `apply_patches.py` still checks that they're there.
+- **0.9.16's own changes to Generate** (untested here): spawn points for every tile, curbed sidewalks for shoulder and
+  biking lanes, and a new building material. Its tree placement can loop forever on a lane narrower than float precision
+  (`Map::GetTreesTransform` skips without stepping on); our map has lanes that narrow to zero. Re-cooking an already
+  generated map (`MIGRATION.md`) doesn't run Generate.
 
 ## What the edits do
 
@@ -427,11 +441,11 @@ under), a stop of over 3 s or a route not finished.
 | Turn off material baking, in `MeshMergeUtilities.cpp` | Written for this project | The buildings crash happens in this optional step. It worked on Tiny, but walls come out plain grey |
 | Keep the parent of dynamic materials, in `MeshMergeUtilities.cpp` | Written for this project | Meant to fix the grey walls. It didn't: they still use Unreal's default material |
 | Null check in `DistanceFieldAtlas.cpp` | Same fix as Unreal fork commit `a288ae07e` | The packaging crash in #7785 fails on exactly this line |
-| Null check in `PrepareAssetsForCookingCommandlet.cpp` | Same fix as later CARLA commit `d7228f746` | Packaging crash on meshes with no material |
-| Null check in `Map.cpp` | Same fix as later CARLA PR #7167 | Tree placement crash on lanes with no speed limit |
+| Null check in `PrepareAssetsForCookingCommandlet.cpp` | Same fix as later CARLA commit `d7228f746`, upstream in 0.9.16 | Packaging crash on meshes with no material |
+| Null check in `Map.cpp` | Same fix as later CARLA PR #7167, upstream in 0.9.16 | Tree placement crash on lanes with no speed limit |
 | `PlaceSpot` in `OpenDriveToMap.cpp` | Written for this project (Stage 9) | Trees and street lights stood on roads and repeated in every tile |
 | Per-lane surface for raised junctions, in `Map.cpp` | Written for this project (Stage 9) | Junctions on ramps and bridges had no surface |
-| New Boost and libpng links in `Setup.sh` | Official download sites | The old links fail |
+| New Boost and libpng links in `Setup.sh` | Official download sites; Boost's is upstream in 0.9.16 | The old links fail |
 | `--exclude=/Engine/Source/ThirdParty/Licenses` on Unreal's `Setup.sh` | Setup's own option | One licence PDF returns 403 |
 
 The two OSM files also had tags with `&`, `|` or `*` removed, because users traced failures to those characters.

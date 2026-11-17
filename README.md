@@ -1,50 +1,41 @@
-# Digital twin generated map (CARLA 0.9.15)
+# Digital twin generated map (CARLA 0.9.16)
 
-The code and inputs behind **WolfsburgHighway**, a 2 x 2 km CARLA 0.9.15 map of Wolfsburg generated from
-OpenStreetMap with CARLA's Digital Twin Tool, and the scenarios that run on it. It all ran on a Google Cloud VM
-(`carla`, europe-west4-b in the Netherlands, an L4 GPU) inside the `carla` Docker container (Ubuntu 20.04, Python 3.8). Snapshot of
-2026-11-12.
+The code and inputs behind **WolfsburgHighway**, a 2 x 2 km CARLA map of Wolfsburg generated from
+OpenStreetMap with CARLA's Digital Twin Tool, and the scenarios that run on it. It was built on CARLA 0.9.15 on a Google
+Cloud VM (`carla`, europe-west4-b, an L4 GPU); that state is the tag `carla-0.9.15`. Since 2026-11-17 the project
+targets **CARLA 0.9.16** on any Linux machine with an NVIDIA GPU, in the `carla` Docker container (Ubuntu 22.04,
+Python 3.10). `MIGRATION.md` moves the map from the old VM to a new machine.
 
 | Path | On the VM / Mac | What it is |
 |---|---|---|
 | `digital_twin/` | VM `/work/dt` | Builds the map and tests it. `GUIDE.md` is the step-by-step guide and the log of every problem found; `vm.sh` runs each step on the VM. |
 | `digital_twin/WolfsburgHighway.{xodr,osm,keepout}` | VM `/work/dt` | The exact inputs the map was generated from (output of `prepare_dt.py`). |
 | `digital_twin/Wolfsburg.osm` | VM `/work/dt` | The OpenStreetMap export they were cut from. |
-| `patches/` | `git diff` in `/work/carla`, `/work/UE4` | Our changes to CARLA 0.9.15.2 and Unreal Engine 4.26 (CarlaUnreal commit 8d08ab7fe), for reference. `digital_twin/apply_patches.py` makes them. |
-| `crop_osm.py`, `load_osm.py`, `Dockerfile` | Mac `~/Coding/CARLA` | Turn the OSM export into the road file; `Dockerfile` is the `carla-client:0.9.15` image `load_osm.py` and `rails_plan.py` run in. |
-| `car_simulator/` | VM `/work/car_simulator` | Euro NCAP style AEB scenarios (child behind an obstruction, crowded crosswalk, parking and cyclist cut-ins), ported to 0.9.15 and WolfsburgHighway. Copy of the `wolfsburg-0915` branch of botapaul/car_simulator; `PORTING_0.9.15.md` says what changed. `tools/navmesh/out/WolfsburgHighway.bin` is the walker navmesh in use. |
-| `car_simulator_inputs/` | Mac | What car_simulator's tools read: the installed road file (after `uturns` and `lights`), `.keepout`, and CARLA 0.9.15's `RecastBuilder`. |
+| `patches/` | `git diff` in `/work/carla`, `/work/UE4` | Our changes to CARLA 0.9.16 and Unreal Engine 4.26 (CarlaUnreal's `carla` branch), for reference. `digital_twin/apply_patches.py` makes them. |
+| `crop_osm.py`, `load_osm.py`, `Dockerfile` | Mac `~/Coding/CARLA` | Turn the OSM export into the road file; `Dockerfile` is the `carla-client` image `load_osm.py` and `rails_plan.py` run in (0.9.16; its header builds the 0.9.15 one for the Mac's CARLA.app). |
+| `car_simulator/` | VM `/work/car_simulator` | Euro NCAP style AEB scenarios (child behind an obstruction, crowded crosswalk, parking and cyclist cut-ins), ported to WolfsburgHighway and CARLA 0.9.16. Based on the `wolfsburg-0915` branch of botapaul/car_simulator; `PORTING.md` says what differs from upstream (0.9.15 notes: `PORTING_0.9.15.md` in the tag `carla-0.9.15`). `tools/navmesh/out/WolfsburgHighway.bin` is the walker navmesh in use. |
+| `car_simulator_inputs/` | Mac | What car_simulator's tools read: the installed road file (after `uturns` and `lights`), `.keepout`, and the `RecastBuilder` (the same Recast branch in 0.9.15 and 0.9.16). |
 
 The road files form one chain, checked byte for byte: `digital_twin/WolfsburgHighway.xodr` (md5 d722a686…) →
 `remove_uturns.py` → adb47ff2… (as packaged in the fourth build) → `move_lights.py` →
 `car_simulator_inputs/WolfsburgHighway.xodr` (e9d03dfa…, installed now).
 
-## Rebuild on a new VM
+## Move or rebuild
 
-About 6 to 8 hours of VM time, most of it unattended. `digital_twin/GUIDE.md` has the details of each stage.
+- **Move the existing map to a new machine:** `MIGRATION.md`. The old VM packs a bundle (`vm.sh bundle`), and the new
+  machine builds CARLA 0.9.16 and cooks the map again from it (`vm.sh unpack`, `vm.sh recook`). About 4 to 5 hours of
+  machine time, most of it unattended.
+- **Generate the map from scratch** (about 6 to 8 hours; `digital_twin/GUIDE.md` has each stage): `vm.sh setup`,
+  `start`, `stock`, `fetch` (a GitHub account linked to Epic Games), `engine`, `carla` (clones CARLA 0.9.16 and runs
+  `apply_patches.py`, which edits exact lines of that version; `patches/` shows the result). Then from
+  `vm.sh prepared WolfsburgHighway`: generate, audit, facades, rails (from `WolfsburgHighway_rails.json`), meshscan,
+  tileoffset, package, and `vm.sh uturns WolfsburgHighway; vm.sh lights WolfsburgHighway; vm.sh speedsigns`. Copy
+  `car_simulator/tools/navmesh/out/WolfsburgHighway.bin` to `/work/stock/CarlaUE4/Content/CustomMaps/WolfsburgHighway/Nav/`.
+  The OSM steps (`crop_osm.py`, `load_osm.py`, `prepare_dt.py`) are only needed for a new area.
 
-1. **VM** (GUIDE Stage 1): a GPU quota, Cloud NAT in the VM's region (Stage 7 gives the flags Tailscale needs), and the
-   VM. Copy `digital_twin/` to `/work/dt`.
-2. **System:** `vm.sh setup` (driver, then again after its reboot; it also builds the `carla-build` image from
-   `digital_twin/Dockerfile`), `vm.sh start`, `vm.sh stock` (the packaged CARLA 0.9.15 the map is installed into).
-3. **Unreal and CARLA** (Stages 3 and 4): `vm.sh fetch` needs a GitHub account linked to Epic Games for CARLA's Unreal
-   fork. `vm.sh engine`, then `vm.sh carla`, which clones CARLA **0.9.15.2** and runs `apply_patches.py` on both trees
-   before building. To build CARLA from another source, it must still be exactly 0.9.15.2 with `apply_patches.py`
-   run on it (it edits exact lines of that version); `patches/` shows the expected result.
-4. **The map** (Stage 9, from `vm.sh prepared WolfsburgHighway` on): the inputs are already in `/work/dt`, so the
-   OSM steps (`crop_osm.py`, `load_osm.py`, `prepare_dt.py`) are only needed for a new area. Then generate, audit,
-   facades, rails (from `WolfsburgHighway_rails.json`), meshscan, tileoffset, package, and
-   `vm.sh uturns WolfsburgHighway; vm.sh lights WolfsburgHighway; vm.sh speedsigns`. Copy
-   `car_simulator/tools/navmesh/out/WolfsburgHighway.bin` to
-   `/work/stock/CarlaUE4/Content/CustomMaps/WolfsburgHighway/Nav/`.
-5. **Viewing** (Stage 7): `vm.sh stream` (Tailscale and Sunshine), then pair Moonlight with `vm.sh pair <PIN>`.
-6. **Scenarios:** copy `car_simulator/` to `/work/car_simulator` and follow `car_simulator/PORTING_0.9.15.md`
-   (`scripts/setup_env_linux.sh`, ScenarioRunner v0.9.15).
-7. **Check it:** `signals_check.py`, `merge_test.py`, `surface_check.py`, then the five scenario variants.
-
-Not proven: nobody has rebuilt the map from scratch with this repo yet. The inputs and patches are the ones used, so
-the roads match; meshes may still differ in details nothing here pins down (for example which facade each building
-gets).
+Not proven: nobody has generated the map on 0.9.16 yet, and on 0.9.15 nobody rebuilt it from scratch with this repo.
+The inputs are the ones used, so the roads match; meshes may differ in details nothing here pins down (for example
+which facade each building gets).
 
 ## Scripts in `digital_twin/`
 
@@ -53,6 +44,7 @@ gets).
   `tile_offset.py`.
 - **Fix an installed map:** `remove_uturns.py` (`vm.sh uturns`), `move_lights.py` (`vm.sh lights`),
   `fix_speed_signs.py` (`vm.sh speedsigns`).
+- **Move:** `vm.sh bundle` (old VM), `vm.sh unpack` and `vm.sh recook` (new machine); see `MIGRATION.md`.
 - **Check a map:** `level_audit.py` / `check_level.py` / `level_prune.py`, `check_heights.py`, `merge_test.py` (ramps
   and bridges), `surface_check.py`, `jiggle_test.py`, `signals_check.py` (traffic lights and signs, with autopilot
   cars), `map_test.py`, `drive_test.py`, `dormant_grid.py`.

@@ -96,30 +96,17 @@ from find_crossing_spots import find_candidates  # noqa: E402
 MAPS_DIR = CARLA_ROOT / "CarlaUE4" / "Content" / "Carla" / "Maps"
 TOWNS = ["Town01", "Town02", "Town03", "Town04", "Town05", "Town06", "Town07", "Town10HD", "Town12"]
 MIN_CANDIDATES = {"Town03": 10, "Town05": 25, "Town10HD": 4}
-MIN_INNER_CANDIDATES = {"Town10HD": 3}  # lane="inner" starts; Town10HD_Opt has the same OpenDRIVE file. Eight inner lanes go straight, three (four on CARLA 0.9.16) have a road long enough for APPROACH
+MIN_INNER_CANDIDATES = {"Town10HD": 3}  # lane="inner" starts; Town10HD_Opt has the same OpenDRIVE file. Eight inner lanes go straight, three have a road long enough for APPROACH (upstream expected four; the CARLA 0.9.16 release's Town10HD.xodr gives three, upstream's code too)
 # Two Town12 starts miss the lane/walk-line checks by a few centimetres over the 0.5 m tolerance (a trigger 0.53 m off
 # the walk line on a curve, a lane meeting it 0.51 m outside the crosswalk). Harmless for a 25 m trigger distance;
 # reported as NOTE, the crowd checks still count. {(town, road_id, lane_id): messages that may be ignored}
 KNOWN_MARGINAL = {
     ("Town12", 28, 1): ("trigger location is not where the lane meets the walk line",),
     ("Town12", 878, -4): ("lane meets walk line 0.51 m outside the crosswalk",),
-    # CARLA 0.9.15's maps (the checks were tuned on 0.9.16's): starts that no scenario uses. Town03/04/05: a bicycle line
-    # or a crowd walker that does not fit; Town10HD inner lanes (occluder check): the bus stop and the truck leave the
-    # child's waiting spot in sight at one or two distances, and one inner start has its kerb lane end in the junction
-    ("Town03", 76, 1): ("cyclists: no bicycle in direction A",),
-    ("Town03", 4, -2): ("cyclists: no bicycle in direction A",),
-    ("Town04", 52, 1): ("cyclist 2: the nose at the target (0.92 m from it) is off the road",),
-    ("Town05", 20, -1): ("crowd: 9 of 10 walkers placed",),
-    ("Town05", 30, -2): ("cyclist 0: the nose at the target (0.92 m from it) is off the road",),
-    ("Town05", 33, -2): ("cyclist 2: the nose at the target (0.92 m from it) is off the road",),
-    ("Town10HD", 10, 1): ("the child's waiting spot is in sight of the ego 25 m before the crossing",),
-    ("Town10HD", 6, -1): ("the child's waiting spot is in sight of the ego 55 m before the crossing",
-                          "the child's waiting spot is in sight of the ego 60 m before the crossing"),
+    # The CARLA 0.9.16 release's Town10HD.xodr (upstream's code fails here too): an inner start no scenario uses whose
+    # kerb lane ends in the junction
     ("Town10HD", 10, -1): ("truck is not on the rightmost driving lane, off the junction",
-                           "car is not on the rightmost driving lane, off the junction",
-                           "the child's waiting spot is in sight of the ego 30 m before the crossing",
-                           "the child's waiting spot is in sight of the ego 35 m before the crossing",
-                           "the child's waiting spot is in sight of the ego 40 m before the crossing"),
+                           "car is not on the rightmost driving lane, off the junction"),
 }
 APPROACH = 60.0
 CROWD = 10  # extra pedestrians per candidate

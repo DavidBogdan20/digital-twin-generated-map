@@ -13,14 +13,14 @@ Tested end to end on 2026-11-13, with the Mac in place of the laptop.
 Reading CARLA directly through the tunnel also works, but it is not used:
 - it sent 7.6 MB/s, because CARLA sends every client every frame (about 200 a second when idle);
 - every request took about 370 ms;
-- it needs `carla==0.9.15`, which only exists for Python 3.7 to 3.10.
+- it needs the `carla` client of the server's exact version: `carla==0.9.16`, for Python 3.10 to 3.12.
 
 `HERBIE_DATA_PLAN.md` has the measurements.
 
 ## What each side needs for the handshake
 
 **VM:** all of this is ready; you only start it.
-- CARLA 0.9.15 running with a map loaded: `vm.sh run`, then `vm.sh check WolfsburgHighway`.
+- CARLA 0.9.16 running with a map loaded: `vm.sh run`, then `vm.sh check WolfsburgHighway`.
 - The publisher running: `vm.sh publish`. It listens on localhost only, waits for CARLA, and keeps running across map loads and scenario restarts.
 - Network access, already in place:
   - the firewall lets IAP reach port 22 (`default-allow-ssh`);
@@ -35,6 +35,8 @@ Reading CARLA directly through the tunnel also works, but it is not used:
   ```
   gcloud compute ssh carla --zone europe-west4-b --project carla-513807 --tunnel-through-iap -- -N -L 2100:localhost:2100
   ```
+  On a machine outside Google Cloud (`MIGRATION.md`), the same tunnel is plain SSH, for example over Tailscale:
+  `ssh -N -L 2100:localhost:2100 <user>@<machine>`. The publisher and the bridge don't change.
 - The bridge reads `localhost:2100`. That's a plain TCP socket, so it needs no `carla` package, works with any Python version and doesn't go through the proxy.
 
 **What happens when the bridge connects:**

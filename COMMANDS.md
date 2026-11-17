@@ -2,7 +2,10 @@
 
 `<...>` = fill in. `[...]` = optional.
 
-## Mac terminal
+## Mac terminal (the Google Cloud VM)
+
+On another machine (`MIGRATION.md`) use plain `ssh`, over Tailscale or its own address, instead of `gcloud compute ssh`.
+
 
 - `gcloud compute instances list --project=carla-513807` -> is the VM running?
 - `gcloud compute instances start carla --zone=europe-west4-b --project=carla-513807` -> start the VM (billing starts; on STOCKOUT retry in a few minutes)
@@ -37,8 +40,7 @@
 
 ## Container shell (tests)
 
-- `docker exec -it -u carla -e DISPLAY=:0 carla bash` -> shell in the container (windows show in Moonlight)
-- `export PYTHONPATH=$(ls /work/carla/PythonAPI/carla/dist/*py3.8*.egg)` -> lets `/work/dt` scripts import carla
+- `docker exec -it -u carla -e DISPLAY=:0 carla bash` -> shell in the container (windows show in Moonlight; it has `carla==0.9.16` installed)
 - `python3 /work/dt/signals_check.py [minutes] [map] [lights,stops,speed]` -> autopilot vs traffic lights and signs
 - `python3 /work/dt/merge_test.py [map]` -> drive the ramps and bridges
 - `python3 /work/dt/surface_check.py [step m]` -> check the road surface for bumps
@@ -66,10 +68,10 @@
 ## Rebuilding the map (rare, in this order; GUIDE.md has details)
 
 - `/work/dt/vm.sh setup` -> driver, display, Docker (run again after its reboot)
-- `/work/dt/vm.sh stock` -> download stock CARLA 0.9.15
+- `/work/dt/vm.sh stock` -> download stock CARLA 0.9.16 (`STOCK_URL=<tar.gz> vm.sh stock` for another release)
 - `/work/dt/vm.sh fetch` -> download Unreal (GitHub token on stdin)
 - `/work/dt/vm.sh engine` -> build Unreal
-- `/work/dt/vm.sh carla` -> build CARLA 0.9.15.2
+- `/work/dt/vm.sh carla` -> build CARLA 0.9.16
 - `/work/dt/vm.sh prepared <map>` -> put the map's road inputs in place
 - `/work/dt/vm.sh editor` -> open the Unreal editor
 - `/work/dt/vm.sh generate <map> '<osm url>'` -> generate the map
@@ -84,3 +86,10 @@
 - `/work/dt/vm.sh lights <map>` -> move traffic light stop lines off stub roads
 - `/work/dt/vm.sh speedsigns` -> fix 100/110/120 km/h signs (once per stock install)
 - `/work/dt/vm.sh wolfsburg <map>` -> old Wolfsburg2 road input (instead of `prepared`)
+
+## Moving to a new machine (MIGRATION.md)
+
+- `sudo bash /tmp/vm.sh bundle [maps]` -> on the old VM, with the new `vm.sh` copied to `/tmp`: pack maps, road files, navmeshes and logs into `/work/bundle`
+- `cd /work/bundle && sha256sum -c SHA256SUMS` -> check a copied bundle (`shasum -a 256 -c` on the Mac)
+- `/work/dt/vm.sh unpack` -> on the new machine, after `carla`: put the bundle's maps into the build
+- `/work/dt/vm.sh recook <map>` -> cook a bundled map into stock 0.9.16 with its fixed road file and navmesh (editor closed)

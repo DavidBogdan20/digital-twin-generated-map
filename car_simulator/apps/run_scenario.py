@@ -46,7 +46,7 @@ with its own outputs/<time>_<variant>/ folder. Its Quit button (Esc, the X) ends
 exits. When a run ends by itself the window stays open with the last frame and the result and metrics line, and
 waits for R or Quit. --no-view skips the window (a single run, as before). Ctrl-C here ends everything.
 
-An autopilot run is synchronous by default (ScenarioRunner v0.9.15 fixed-step mode, steps of 0.05 s, fixed):
+An autopilot run is synchronous by default (ScenarioRunner's fixed-step mode, steps of 1 / --frame-rate seconds):
 repeatable, and the scenario and the chase view cannot starve each other, but it runs as fast as the PC allows, not
 in real time. --async opts out (real time, not repeatable). A manual run is asynchronous by default (you drive it in
 real time); --sync forces the synchronous mode.
@@ -98,12 +98,9 @@ SPECTATOR_AT_START = {"behind": 12.0, "height": 6.0, "pitch": -20.0}  # the CARL
 TRAFFIC_MANAGER_SEED = 0  # ScenarioRunner's --trafficManagerSeed default; run_scenario does not change it
 
 
-SR_FRAME_RATE = 20.0  # ScenarioRunner v0.9.15's synchronous steps per second, fixed (it has no --frameRate option)
-
-
 def scenario_runner_arguments(variant, scenario_py, scenario_xml, host, port, timeout, tm_port, run_dir, sync,
-                              record=None, debug=False):
-    """The command-line arguments of scenario_runner.py (v0.9.15) for one run."""
+                              record=None, debug=False, frame_rate=20.0):
+    """The command-line arguments of scenario_runner.py (v0.9.16) for one run."""
     sr_args = [
         "--scenario", variant,
         "--additionalScenario", scenario_py,
@@ -116,7 +113,7 @@ def scenario_runner_arguments(variant, scenario_py, scenario_xml, host, port, ti
         "--outputDir", run_dir,
     ]
     if sync:
-        sr_args.append("--sync")
+        sr_args += ["--sync", "--frameRate", frame_rate]
     if record is not None:
         sr_args += ["--record", record]
     if debug:
@@ -270,9 +267,8 @@ def main():
                       help="run the simulation asynchronously, in real time, not repeatable (the default for a "
                            "manual run; an autopilot run is synchronous unless you pass this)")
     parser.set_defaults(sync=None)
-    parser.add_argument("--frame-rate", type=float, default=SR_FRAME_RATE,
-                        help="simulation steps per second in synchronous mode: ScenarioRunner v0.9.15 has 20 fixed, "
-                             "any other value is refused")
+    parser.add_argument("--frame-rate", type=float, default=20.0,
+                        help="simulation steps per second; only used in synchronous mode (default 20)")
     parser.add_argument("--drive", default=XML_DRIVE, choices=DRIVE_CHOICES,
                         help="who drives the ego: 'xml' (default) keeps the variant's <ego_control mode>, "
                              "'autopilot' lets the scenario drive it, 'manual' lets you drive it (the driving window, "
@@ -342,9 +338,8 @@ def main():
         print("Note: --no-driver-window only matters for manual driving; ignored.")
     if manual and sync:
         print("WARNING: manual control with --sync: the simulation does not run in real time.")
-    if args.frame_rate != SR_FRAME_RATE:
-        sys.exit(f"--frame-rate {args.frame_rate:g}: ScenarioRunner v0.9.15 steps a synchronous run at "
-                 f"{SR_FRAME_RATE:g} per second and has no option to change it.")
+    if args.frame_rate != parser.get_default("frame_rate") and not sync:
+        print("Note: --frame-rate only applies in synchronous mode (--sync, or an autopilot run); ignored.")
     if args.record and args.host not in ("127.0.0.1", "localhost"):
         print(f"WARNING: --record: the recording is written by the server on {args.host}, "
               "so the path in the run folder only exists if that machine shares this file system.")
@@ -438,7 +433,7 @@ def main():
 
             sr_args = scenario_runner_arguments(variant.name, scenario_file(args.scenario), scenario_xml, args.host,
                                                 args.port, args.timeout, args.tm_port, run_dir, sync, record_arg,
-                                                args.debug)
+                                                args.debug, args.frame_rate)
 
             command = scenario_runner_command(sr_args)
             metrics_file = run_dir / "metrics.json"  # written by the metrics block (CARSIM_METRICS_FILE), merged below

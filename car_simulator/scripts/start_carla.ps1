@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Starts the CARLA 0.9.15 server.
+    Starts the CARLA 0.9.16 server.
 
 .EXAMPLE
     .\scripts\start_carla.ps1                    # Low quality, good for large maps like Town12
@@ -15,7 +15,7 @@ param(
 )
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-$CarlaRoot = if ($env:CARLA_ROOT) { $env:CARLA_ROOT } else { Join-Path $RepoRoot "CARLA_0.9.15" }
+$CarlaRoot = if ($env:CARLA_ROOT) { $env:CARLA_ROOT } else { Join-Path $RepoRoot "CARLA_0.9.16" }
 $Exe = Join-Path $CarlaRoot "CarlaUE4.exe"
 if (-not (Test-Path $Exe)) { throw "CarlaUE4.exe not found in $CarlaRoot (set CARLA_ROOT)" }
 

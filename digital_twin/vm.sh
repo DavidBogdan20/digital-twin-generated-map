@@ -1,31 +1,41 @@
 #!/bin/bash
-# Runs on the Google Cloud VM as root, from /work/dt. Usage: vm.sh <step>. GUIDE.md lists the steps in order.
+# Runs on the Linux machine (Ubuntu 22.04/24.04 with an NVIDIA GPU) as root, from /work/dt. Usage: vm.sh <step>.
+# GUIDE.md lists the steps in order; MIGRATION.md (repo root) moves an old 0.9.15 VM to a new 0.9.16 machine.
 set -euo pipefail
 
 WORK=/work
 UE4=$WORK/UE4
 CARLA=$WORK/carla
 STOCK=$WORK/stock
-ENGINE_COMMIT=8d08ab7fe891737b7badebdc77333c24b8348ca1  # the carla branch when 0.9.15 was released
-STOCK_URL=https://carla-releases.s3.us-east-005.backblazeb2.com/Linux/CARLA_0.9.15.tar.gz
+BUNDLE=$WORK/bundle  # what `bundle` packs on the old VM and `unpack` reads on the new machine
+ENGINE_REF=carla  # the head of CARLA's engine branch, as 0.9.16's build_linux.md clones it; fetch logs the commit
+CARLA_TAG=0.9.16
+STOCK_URL=${STOCK_URL:-https://carla-releases.s3.us-east-005.backblazeb2.com/Linux/CARLA_0.9.16.tar.gz}  # override for another release
 SUNSHINE_URL=https://github.com/LizardByte/Sunshine/releases/download/v2026.914.233613/sunshine_2026.914.233613-1%2Bubuntu22.04_amd64.deb
 SUNSHINE_CONF=/root/.config/sunshine/sunshine.conf
 
-box() {  # runs in the Ubuntu 20.04 container, as a normal user because Unreal refuses to run as root
+box() {  # runs in the Ubuntu 22.04 container, as a normal user because Unreal refuses to run as root
   docker exec -i -u carla -e DISPLAY=:0 -e UE4_ROOT=$UE4 -e HOME=/home/carla carla bash -ec "$1"
 }
 
-driver() {  # Google's installer picks the virtual workstation driver and may restart the VM
-  echo 'options nvidia NVreg_EnableGpuFirmware=0' > /etc/modprobe.d/nvidia-gsp.conf  # Google requires this on L4 workstations
-  curl -fsSL -o /root/cuda_installer.pyz https://storage.googleapis.com/compute-gpu-installation-us/installer/latest/cuda_installer.pyz
-  python3 /root/cuda_installer.pyz install_driver
+driver() {  # installs the NVIDIA driver; reboot afterwards
+  if curl -sf -m 2 -H Metadata-Flavor:Google http://metadata.google.internal >/dev/null; then
+    # Google Cloud: its installer picks the licensed virtual workstation driver and may restart the VM
+    echo 'options nvidia NVreg_EnableGpuFirmware=0' > /etc/modprobe.d/nvidia-gsp.conf  # Google requires this on L4 workstations
+    curl -fsSL -o /root/cuda_installer.pyz https://storage.googleapis.com/compute-gpu-installation-us/installer/latest/cuda_installer.pyz
+    python3 /root/cuda_installer.pyz install_driver
+  else
+    apt-get update
+    apt-get install -y ubuntu-drivers-common
+    ubuntu-drivers install  # the recommended full driver (with Vulkan and X), not the compute-only one
+  fi
   echo "Reboot if the installer didn't, then run setup again"
 }
 
 setup() {  # installs the driver, display, remote screen, Docker with GPU access, and the container image
   nvidia-smi || { driver; exit; }
   apt-get update
-  apt-get install -y xserver-xorg x11-xserver-utils openbox x11vnc scrot xdotool vulkan-tools
+  apt-get install -y xserver-xorg x11-xserver-utils openbox x11vnc scrot xdotool vulkan-tools zstd
   command -v docker >/dev/null || apt-get install -y docker.io
   command -v nvidia-xconfig >/dev/null || apt-get install -y nvidia-xconfig
 
@@ -68,11 +78,11 @@ start() {  # starts everything; run it again after any reboot
   command -v sunshine >/dev/null && ! pgrep -x sunshine >/dev/null &&
     (cd /root; DISPLAY=:0 nohup sunshine $SUNSHINE_CONF >/var/log/sunshine.log 2>&1 &)
   box "nohup python3 -m http.server 8000 --bind 127.0.0.1 --directory $WORK/dt >/dev/null 2>&1 &"
-  nvidia-smi -q | grep -A2 'vGPU Software Licensed Product' || true  # must say NVIDIA RTX Virtual Workstation, Licensed
+  nvidia-smi -q | grep -A2 'vGPU Software Licensed Product' || true  # Google Cloud only: must say NVIDIA RTX Virtual Workstation, Licensed
   box 'vulkaninfo | grep -E "apiVersion|deviceName" | head -4'  # the device must be NVIDIA, not llvmpipe
 }
 
-stock() {  # downloads stock CARLA 0.9.15: this tests the GPU, Vulkan and the remote screen before any long build
+stock() {  # downloads stock CARLA 0.9.16: this tests the GPU, Vulkan and the remote screen before any long build
   box "mkdir -p $STOCK; cd $WORK; aria2c -x8 -s8 -o stock.tar.gz $STOCK_URL; tar -xzf stock.tar.gz -C $STOCK; rm stock.tar.gz"
 }
 
@@ -81,7 +91,7 @@ run() {  # opens the simulator on the remote screen
 }
 
 check() {  # loads a generated map in the running simulator. Usage: vm.sh check Tiny
-  box "PYTHONPATH=$(ls $CARLA/PythonAPI/carla/dist/*py3.8*.egg) python3 $WORK/dt/map_test.py $1"
+  box "python3 $WORK/dt/map_test.py $1"  # the container has the carla client (pip, Dockerfile)
 }
 
 shot() {  # saves the remote screen to /tmp/screen.png
@@ -95,9 +105,10 @@ fetch() {  # fetches Unreal; reads a GitHub token from stdin, uses it once and d
     git init -q $UE4; cd $UE4
     git config core.longpaths true
     git remote add origin https://x-access-token@github.com/CarlaUnreal/UnrealEngine.git
-    GIT_ASKPASS=~/.askpass git fetch --depth 1 origin $ENGINE_COMMIT
+    GIT_ASKPASS=~/.askpass git fetch --depth 1 origin $ENGINE_REF
     git checkout -q FETCH_HEAD
     git remote remove origin
+    git rev-parse HEAD | tee $WORK/logs/engine_commit  # the commit this build used; to pin it, set ENGINE_REF to it
   "
 }
 
@@ -111,9 +122,9 @@ engine() {  # patches and builds Unreal
   "
 }
 
-carla() {  # clones, patches and builds CARLA 0.9.15
+carla() {  # clones, patches and builds CARLA 0.9.16
   box "
-    git clone -b 0.9.15.2 https://github.com/carla-simulator/carla $CARLA
+    git clone -b $CARLA_TAG https://github.com/carla-simulator/carla $CARLA
     python3 $WORK/dt/apply_patches.py $UE4 $CARLA
     cd $CARLA
     ./Update.sh
@@ -166,13 +177,13 @@ audit() {  # lists every mesh of every tile from the open editor, then checks th
   [ $# -eq 2 ] && tiles=$(python3 -c "import math; print('_Tile_%d_%d' % (math.floor($1 / 500), math.floor(-$2 / 500)))")
   sed -e "s|@NAME@|$name|g" -e "s|@TILES@|$tiles|g" -e "s|@RUN@|$run|g" $WORK/dt/level_audit.py > $WORK/dt/cmd.py
   timeout 1800 bash -c "until grep -q 'audit: finished $run' $log; do sleep 10; done"  # the editor writes its log late
-  box "PYTHONPATH=$(ls $CARLA/PythonAPI/carla/dist/*py3.8*.egg) python3 $WORK/dt/check_level.py $WORK/logs/${name}_meshes.jsonl \
+  box "python3 $WORK/dt/check_level.py $WORK/logs/${name}_meshes.jsonl \
     $CARLA/Unreal/CarlaUE4/Content/CustomMaps/$name/OpenDrive/$name.xodr $*"
 }
 
 prune() {  # removes the trees and props that the last `audit` rejected, from the open editor, and saves the tiles
   local name=$1 log=$CARLA/Unreal/CarlaUE4/Saved/Logs/CarlaUE4.log run=$(date +%s)
-  box "PYTHONPATH=$(ls $CARLA/PythonAPI/carla/dist/*py3.8*.egg) python3 $WORK/dt/check_level.py $WORK/logs/${name}_meshes.jsonl \
+  box "python3 $WORK/dt/check_level.py $WORK/logs/${name}_meshes.jsonl \
     $CARLA/Unreal/CarlaUE4/Content/CustomMaps/$name/OpenDrive/$name.xodr --write-bad $WORK/logs/${name}_bad.json | tail -1" || true
   sed -e "s|@NAME@|$name|g" -e "s|@RUN@|$run|g" $WORK/dt/level_prune.py > $WORK/dt/cmd.py
   timeout 1800 bash -c "until grep -q 'prune: finished $run' $log; do sleep 10; done"
@@ -233,7 +244,6 @@ drive() {  # opens CARLA's manual_control.py (WASD to drive, P for autopilot) on
     pkill -f '^python3 -u /work/dt/drive.py' || true  # anchored: the text 'drive.py' is in this script too
     while pgrep -f '^python3 -u /work/dt/drive.py' >/dev/null; do sleep 1; done  # starting before it has left loses the new one
     python3 -c 'import pygame' 2>/dev/null || python3 -m pip install --user -q numpy==1.24.4 pygame==2.6.1
-    export PYTHONPATH=$(ls $CARLA/PythonAPI/carla/dist/*py3.8*.egg)
     python3 -c \"import carla; c = carla.Client('localhost', 2000); c.set_timeout(30); [a.destroy() for a in c.get_world().get_actors().filter('vehicle.*')]\"
     # spawn next to the camera: a random far spot makes the map stream a new area at once, which crashed it before
     # and don't start Traffic Manager at startup: building its road map for this map took over 7 minutes, so it waits for P
@@ -248,7 +258,6 @@ scenario() {  # the A 39 elevation scenario on Wolfsburg2, full screen, after ch
   box "
     pkill -f '^python3 -u /work/dt/(drive|elevation_scenario).py' || true  # one client at a time: the scenario runs synchronous
     while pgrep -f '^python3 -u /work/dt/(drive|elevation_scenario).py' >/dev/null; do sleep 1; done
-    export PYTHONPATH=$(ls $CARLA/PythonAPI/carla/dist/*py3.8*.egg)
     DISPLAY=:0 nohup python3 -u $WORK/dt/elevation_scenario.py > $WORK/logs/scenario.log 2>&1 &
   "
 }
@@ -257,7 +266,6 @@ publish() {  # publishes the hero car's state as JSON lines on 127.0.0.1:2100 fo
   # (publish.py, HERBIE_DATA_PLAN.md). Usage: vm.sh publish [rate Hz, default 10]; runs until stopped, whatever map or scenario
   box "
     pkill -f '^python3 -u /work/dt/publish.py' || true
-    export PYTHONPATH=$(ls $CARLA/PythonAPI/carla/dist/*py3.8*.egg)
     nohup python3 -u $WORK/dt/publish.py ${1:-10} > $WORK/logs/publish.log 2>&1 &
   "
 }
@@ -269,9 +277,10 @@ chart() {  # draws logs/elevation.png from the last scenario run
   "
 }
 
-stream() {  # one-time: Tailscale and Sunshine, for Moonlight on the Mac. Needs Cloud NAT in the VM's region
+stream() {  # one-time: Tailscale and Sunshine, for Moonlight on the Mac. Needs outbound internet (on Google Cloud: Cloud NAT)
   command -v tailscale >/dev/null || curl -fsSL https://tailscale.com/install.sh | sh
-  command -v sunshine >/dev/null || { curl -fsSL -o /tmp/sunshine.deb $SUNSHINE_URL; apt-get install -y /tmp/sunshine.deb; }
+  . /etc/os-release  # the Sunshine package must match the host's Ubuntu (22.04 or 24.04)
+  command -v sunshine >/dev/null || { curl -fsSL -o /tmp/sunshine.deb ${SUNSHINE_URL/22.04/$VERSION_ID}; apt-get install -y /tmp/sunshine.deb; }
   # installing packages reloads systemd; without these links that takes the GPU away from the running container
   nvidia-ctk system create-dev-char-symlinks --create-all >/dev/null
   mkdir -p $(dirname $SUNSHINE_CONF)
@@ -289,6 +298,43 @@ pair() {  # enters the PIN Moonlight shows, for the one request waiting. Usage: 
     python3 -c 'import json, sys; p = json.load(sys.stdin)["pairings"]; assert len(p) == 1, p; print(p[0]["id"])')
   curl -fsSk -u "$user:$pass" -X POST https://localhost:47990/api/pin -H 'Content-Type: application/json' \
     -d "{\"pairing_id\":\"$id\",\"pin\":\"$1\",\"name\":\"mac\"}"
+}
+
+bundle() {  # on the OLD 0.9.15 VM: packs what a new machine can't rebuild into /work/bundle (MIGRATION.md). Usage: vm.sh bundle [maps]
+  local maps=${*:-$(ls $CARLA/Unreal/CarlaUE4/Content/CustomMaps)} z=zst
+  command -v zstd >/dev/null || z=gz  # tar -a picks the compression from the name; tar -x detects it
+  mkdir -p $BUNDLE; cd $BUNDLE
+  # the generated maps' editor content: re-cooking it in 0.9.16 needs only this
+  tar -C $CARLA/Unreal/CarlaUE4/Content/CustomMaps -acf maps.tar.$z $maps
+  # their road files and walker navmeshes as installed, after uturns and lights: the ones the scenarios ran on
+  local inst=$(cd $STOCK/CarlaUE4/Content/CustomMaps; for m in $maps; do ls -d $m/OpenDrive $m/Nav 2>/dev/null || true; done)
+  [ -z "$inst" ] || tar -C $STOCK/CarlaUE4/Content/CustomMaps -acf installed.tar.$z $inst
+  # the newest 0.9.15 cook of each map: stock 0.9.15 can still import it if the 0.9.16 re-cook stalls
+  for m in $maps; do ls -t $CARLA/Dist/${m}_*.tar.gz 2>/dev/null | head -1 || true; done | xargs -r cp -t $BUNDLE
+  # the scripts and inputs as they were on the VM, scenario outputs and logs (GUIDE.md's history refers to them)
+  tar -C $WORK -acf vm-files.tar.$z --exclude=dt/cmd.py --exclude=__pycache__ dt logs \
+    $(cd $WORK; ls -d car_simulator/outputs 2>/dev/null || true)
+  { date -u; echo "maps:" $maps; du -sh $CARLA/Unreal/CarlaUE4/Content/CustomMaps/*
+    md5sum $STOCK/CarlaUE4/Content/CustomMaps/*/OpenDrive/*.xodr $STOCK/CarlaUE4/Content/CustomMaps/*/Nav/*.bin 2>/dev/null || true; } > MANIFEST.txt
+  sha256sum *.tar.* MANIFEST.txt > SHA256SUMS
+  chown -R 1000:1000 $BUNDLE
+  ls -la; du -sh .
+}
+
+unpack() {  # on the NEW machine, after `carla`: checks /work/bundle and puts its maps into the 0.9.16 build
+  (cd $BUNDLE; sha256sum -c --quiet SHA256SUMS)
+  box "mkdir -p $CARLA/Unreal/CarlaUE4/Content/CustomMaps; tar -C $CARLA/Unreal/CarlaUE4/Content/CustomMaps -xf $(ls -t $BUNDLE/maps.tar.* | head -1)"
+  ls $CARLA/Unreal/CarlaUE4/Content/CustomMaps
+}
+
+recook() {  # cooks a bundled map in the 0.9.16 build, installs it into stock 0.9.16 with its old road file and navmesh, and
+            # lists asset references 0.9.16 lacks. Usage: vm.sh recook WolfsburgHighway (after unpack, with the editor closed)
+  local name=$1 log=$WORK/logs/package_$1.log
+  package $name > $log 2>&1 || { tail -30 $log; return 1; }
+  box "tar -C $STOCK/CarlaUE4/Content/CustomMaps -xf $(ls -t $BUNDLE/installed.tar.* | head -1) $name"
+  grep -E "Failed to load|Failed import|Can't find file|Unable to find package|Error:" $log | sort | uniq -c | sort -rn | head -40 || true
+  md5sum $STOCK/CarlaUE4/Content/CustomMaps/$name/OpenDrive/$name.xodr  # must match the bundle's MANIFEST.txt:
+  grep "/$name/OpenDrive/" $BUNDLE/MANIFEST.txt || echo "not in the bundle"
 }
 
 "$@"

@@ -150,7 +150,7 @@ def write_run_config(source_xml, variant_name, weather, dest_xml, drive=XML_DRIV
             node.remove(stale)
         node.insert(index, element)
 
-    if hasattr(ET, "indent"):  # Python 3.9+; on 3.8 (the VM) the copy stays as parsed
+    if hasattr(ET, "indent"):  # Python 3.9+; on 3.8 the copy stays as parsed
         ET.indent(tree, space="    ")
     Path(dest_xml).parent.mkdir(parents=True, exist_ok=True)
     tree.write(dest_xml, encoding="utf-8", xml_declaration=True)

@@ -10,7 +10,7 @@ server and no display needed. Checked:
   - hud_lines: speed, target ("-" when none), time, map, view and the key legend
   - parse_res, and chase_view_command_args (host and port only when not the defaults, --control with a folder,
     --spectator)
-  - the flags run_scenario passes exist in ScenarioRunner v0.9.15's scenario_runner.py and manual_control.py parsers
+  - the flags run_scenario passes exist in ScenarioRunner v0.9.16's scenario_runner.py and manual_control.py parsers
     (read from their add_argument calls), and the driving window's set_autopilot is pinned to our Traffic Manager port
   - --spectator: follow_transform puts the spectator behind / above the hero in each view, turned with it, and
     SpectatorView moves the spectator and spawns no sensor; runner.start_window on Linux: its own session, the output
@@ -412,7 +412,7 @@ def check_spectator_and_window():
 
 
 def check_scenario_runner_flags():
-    print("ScenarioRunner v0.9.15 and manual_control.py flags")
+    print("ScenarioRunner v0.9.16 and manual_control.py flags")
     import ast
     import run_scenario
     from unittest import mock
@@ -425,12 +425,12 @@ def check_scenario_runner_flags():
                 for arg in node.args if isinstance(arg, ast.Constant) and str(arg.value).startswith("-")}
 
     sr = options(runner.SCENARIO_RUNNER_ROOT / "scenario_runner.py")
-    check("--trafficManagerPort" in sr and "--frameRate" not in sr, f"not ScenarioRunner v0.9.15's parser: {sorted(sr)}")
+    check("--trafficManagerPort" in sr and "--frameRate" in sr, f"not ScenarioRunner v0.9.16's parser: {sorted(sr)}")
     args = run_scenario.scenario_runner_arguments("V_1", "s.py", "s.xml", "10.0.0.5", 2100, 60.0, 8100, "out", True,
                                                   record="rec", debug=True)
     flags = {a for a in map(str, args) if a.startswith("--")}
-    check(flags <= sr, f"flags ScenarioRunner v0.9.15 does not know: {sorted(flags - sr)}")
-    check("--sync" in flags and "--trafficManagerPort" in flags, f"flags {sorted(flags)}")
+    check(flags <= sr, f"flags ScenarioRunner v0.9.16 does not know: {sorted(flags - sr)}")
+    check({"--sync", "--frameRate", "--trafficManagerPort"} <= flags, f"flags {sorted(flags)}")
     mc = options(runner.manual_control_script())
     flags = {a for a in runner.manual_control_arguments("10.0.0.5", 2100) if a.startswith("--")}
     check(flags <= mc, f"flags manual_control.py does not know: {sorted(flags - mc)}")

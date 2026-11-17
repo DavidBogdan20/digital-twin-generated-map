@@ -1,19 +1,18 @@
 [project]
 name = "car-simulator"
 version = "0.1.0"
-description = "Driving scenarios for CARLA 0.9.15, run with ScenarioRunner"
+description = "Driving scenarios for CARLA 0.9.16, run with ScenarioRunner"
 readme = "README.md"
-# The Windows (uv) setup. carla 0.9.15 has wheels up to Python 3.10; the Linux VM (Python 3.8) does not use this file,
-# see scripts/setup_env_linux.sh
-requires-python = ">=3.10,<3.11"
+# ScenarioRunner pins numpy==1.24.4, which has no Python 3.12 build
+requires-python = ">=3.10,<3.12"
 dependencies = [
-    # CARLA 0.9.15 only (server, client and maps), from PyPI
-    "carla==0.9.15",
+    # From PyPI: the wheel shipped in CARLA_0.9.16/PythonAPI/carla/dist is cp312 only
+    "carla==0.9.16",
     # ScenarioRunner's manual_control.py (manual ego driving)
     "pygame>=2.5",
 
-    # ScenarioRunner's requirements, as of v0.9.16 (newer than v0.9.15's pins, which have no Python 3.10 wheels;
-    # v0.9.15 runs with them). Keep in sync when changing the ScenarioRunner tag.
+    # ScenarioRunner v0.9.16, copied from external/scenario_runner/requirements.txt.
+    # Keep in sync when changing the ScenarioRunner tag.
     "py-trees==0.8.3",
     "numpy==1.24.4",
     "networkx==3.4.2",
@@ -47,7 +46,7 @@ environments = [
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
-pythonVersion = "3.10"
+pythonVersion = "3.11"
 include = ["src", "apps", "tests", "scenarios"]
 # Mirrors the PYTHONPATH that carsim.runner gives ScenarioRunner, plus apps/ (imported by tests)
-extraPaths = ["src", "apps", "CARLA_0.9.15/PythonAPI/carla", "external/scenario_runner"]
+extraPaths = ["src", "apps", "CARLA_0.9.16/PythonAPI/carla", "external/scenario_runner"]
